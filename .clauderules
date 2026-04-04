@@ -1,0 +1,29 @@
+# A1DE Project Context
+
+This is a monorepo for A1DE, a personal family AI assistant.
+
+## Architecture
+- Native Swift iOS app (not Expo/React Native) using SwiftUI
+- TypeScript backend on GCP Cloud Run (Hono framework)
+- PostgreSQL + pgvector on Cloud SQL for context/memory
+- Claude Sonnet API with tool use for intelligence
+- Channels: Sendblue (iMessage), Kapso (WhatsApp), Twilio (SMS)
+
+## Design system
+- Premiere v3: Outfit font, zinc-black dark-first, 12px radii, 1.5px strokes
+- Brand integration with Mono/Tinted/Brand color modes
+- Components: Message, Itinerary, Todos, Table, Gantt
+
+## Code style
+- TypeScript: strict mode, async/await, no classes (functional)
+- Swift: SwiftUI, MVVM, async/await, no UIKit unless necessary
+- SQL: PostgreSQL 15+, snake_case, use pgvector for embeddings
+- All secrets via GCP Secret Manager, never hardcoded
+
+## Key files
+- SPEC.md — Full project specification
+- backend/src/orchestrator/ — The brain routing + Claude API
+- backend/src/tools/ — Tool implementations Claude calls
+- backend/src/context/ — Database + semantic memory
+- apps/ios/A1DE/Design/ — Premiere v3 tokens
+- infra/sql/schema.sql — Database schema
