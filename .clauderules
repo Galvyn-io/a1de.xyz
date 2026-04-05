@@ -5,7 +5,7 @@ This is a monorepo for A1DE, a personal family AI assistant.
 ## Architecture
 - Native Swift iOS app (not Expo/React Native) using SwiftUI
 - TypeScript backend on GCP Cloud Run (Hono framework)
-- PostgreSQL + pgvector on Cloud SQL for context/memory
+- PostgreSQL + pgvector on Supabase for context/memory
 - Claude Sonnet API with tool use for intelligence
 - Channels: Sendblue (iMessage), Kapso (WhatsApp), Twilio (SMS)
 
@@ -14,11 +14,16 @@ This is a monorepo for A1DE, a personal family AI assistant.
 - Brand integration with Mono/Tinted/Brand color modes
 - Components: Message, Itinerary, Todos, Table, Gantt
 
+## Check-in rules
+- Before every commit: update relevant architecture/usage docs in /docs
+- Always write release notes for every commit
+- Use pnpm (not npm) for all backend package management
+
 ## Code style
 - TypeScript: strict mode, async/await, no classes (functional)
 - Swift: SwiftUI, MVVM, async/await, no UIKit unless necessary
 - SQL: PostgreSQL 15+, snake_case, use pgvector for embeddings
-- All secrets via GCP Secret Manager, never hardcoded
+- All secrets via GCP Secret Manager (backend) and Supabase dashboard (DB), never hardcoded
 
 ## Key files
 - SPEC.md — Full project specification
