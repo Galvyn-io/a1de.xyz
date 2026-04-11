@@ -7,3 +7,21 @@ export interface UserProfile {
   created_at: string;
   updated_at: string;
 }
+
+export type ConnectorType = 'email' | 'calendar' | 'health';
+export type ConnectorProvider = 'gmail' | 'google_calendar' | 'whoop' | 'apple_health';
+export type ConnectorStatus = 'active' | 'error' | 'disconnected';
+
+export interface Connector {
+  id: string;
+  user_id: string;
+  credential_id: string;
+  type: ConnectorType;
+  provider: ConnectorProvider;
+  label: string;
+  status: ConnectorStatus;
+  status_message: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+}

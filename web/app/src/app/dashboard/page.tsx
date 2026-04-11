@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import type { UserProfile } from '@/lib/supabase/types';
 
@@ -23,6 +24,12 @@ export default async function DashboardPage() {
           <p className="text-sm text-zinc-500">Signed in as</p>
           <p className="mt-1 font-medium">{user?.email}</p>
         </div>
+        <Link
+          href="/connectors"
+          className="inline-block rounded-xl border border-zinc-800 px-6 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
+        >
+          Manage Connectors
+        </Link>
       </div>
     </div>
   );
