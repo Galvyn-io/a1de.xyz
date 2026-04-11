@@ -23,17 +23,19 @@ CREATE POLICY "Users can view own profile"
 -- Users can update their own profile
 CREATE POLICY "Users can update own profile"
     ON public.user_profiles FOR UPDATE
-    USING (auth.uid() = id);
+    USING (auth.uid() = id)
+    WITH CHECK (auth.uid() = id);
+
+-- Admin check via security definer to avoid RLS recursion
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+    SELECT is_admin FROM public.user_profiles WHERE id = auth.uid();
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- Admins can read all profiles
 CREATE POLICY "Admins can view all profiles"
     ON public.user_profiles FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.user_profiles
-            WHERE id = auth.uid() AND is_admin = true
-        )
-    );
+    USING (public.is_admin());
 
 -- Auto-create profile on signup
 -- Sets is_admin = true for yatharth@mlv.io

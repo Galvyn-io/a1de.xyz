@@ -31,7 +31,8 @@ export default function RegisterPage() {
       .eq('id', user.id);
 
     if (updateError) {
-      setError('Something went wrong. Please try again.');
+      console.error('Registration error:', updateError);
+      setError(updateError.message);
       setLoading(false);
       return;
     }
