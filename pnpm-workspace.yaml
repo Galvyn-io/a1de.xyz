@@ -1,0 +1,7 @@
+packages:
+  - 'backend'
+  - 'web/*'
+  - 'packages/*'
+onlyBuiltDependencies:
+  - esbuild
+  - sharp

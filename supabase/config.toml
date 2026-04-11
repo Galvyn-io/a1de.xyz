@@ -1,0 +1,11 @@
+[auth]
+site_url = "https://app.a1de.xyz"
+additional_redirect_urls = [
+  "https://app.a1de.xyz/auth/callback",
+  "http://localhost:3000/auth/callback",
+]
+
+[auth.external.google]
+enabled = true
+client_id = "env(GOOGLE_OAUTH_CLIENT_ID)"
+secret = "env(GOOGLE_OAUTH_CLIENT_SECRET)"

@@ -56,7 +56,7 @@ Think of it as an executive assistant that has its own identity (its own phone n
        │                    │
 ┌──────▼──────┐    ┌───────▼────────┐
 │ Context DB  │    │ Claude Sonnet  │
-│ Cloud SQL   │    │ API + Tools    │
+│ Supabase   │    │ API + Tools    │
 │ + pgvector  │    └────────────────┘
 └──────▲──────┘
        │
@@ -155,7 +155,7 @@ a1de/
 │
 ├── infra/
 │   ├── terraform/                   # GCP infrastructure as code
-│   │   ├── main.tf                  # Cloud Run, Cloud SQL, IAM, secrets
+│   │   ├── main.tf                  # Cloud Run, Supabase, IAM, secrets
 │   │   ├── variables.tf
 │   │   └── outputs.tf
 │   ├── cloudbuild.yaml              # CI/CD for backend
@@ -224,7 +224,7 @@ No cross-project build dependencies. Each builds independently. The monorepo is 
 |---|---|---|
 | Runtime | Node.js + TypeScript | Matches existing skills, Sendblue/Kapso SDKs are TS-first |
 | Framework | Hono (on Cloud Run) | Lightweight, fast, good TypeScript support |
-| Database | Cloud SQL (PostgreSQL 15+) | pgvector extension for embeddings, structured state in same DB |
+| Database | Supabase (PostgreSQL 15+ with pgvector) | Built-in pgvector, dashboard, realtime subscriptions, managed |
 | AI model | Claude Sonnet (via Anthropic API) | Best tool use, good cost/quality tradeoff |
 | Extraction | Claude Haiku | Cheapest model for fact extraction during ingestion |
 | Embeddings | text-embedding-3-small (OpenAI) or Voyage | Cheap, good quality for semantic search |
@@ -253,7 +253,7 @@ No cross-project build dependencies. Each builds independently. The monorepo is 
 | Component | GCP Service | Estimated cost |
 |---|---|---|
 | Orchestrator | Cloud Run | ~$5-15/mo (scales to zero) |
-| Database | Cloud SQL (PostgreSQL) | ~$7-15/mo (smallest instance) |
+| Database | Supabase (PostgreSQL) | Free tier (500MB), Pro $25/mo if needed |
 | Secrets | Secret Manager | Free tier |
 | Jobs (ingestion) | Cloud Run Jobs | ~$2-5/mo |
 | Push notifications | APNs (via direct connection) | Free |
@@ -643,7 +643,7 @@ Recent relevant context: {injected from semantic search}
 
 Goal: Family can text A1DE on WhatsApp and iMessage and get useful responses.
 
-- [ ] Set up GCP project (Cloud Run, Cloud SQL, Secret Manager)
+- [ ] Set up GCP project (Cloud Run, Supabase, Secret Manager)
 - [ ] Database schema (structured state + pgvector)
 - [ ] Orchestrator skeleton (Hono on Cloud Run)
 - [ ] Claude API integration with tool use loop
@@ -711,6 +711,10 @@ Region: us-west1 (closest to Bothell, WA)
 ### Required secrets (Secret Manager)
 
 ```
+SUPABASE_URL               # Supabase project URL
+SUPABASE_ANON_KEY          # Supabase public anon key
+SUPABASE_SERVICE_ROLE_KEY  # Supabase service role key (server-side only)
+DATABASE_URL               # Direct Postgres connection for migrations
 ANTHROPIC_API_KEY          # Claude API
 SENDBLUE_API_KEY           # iMessage
 SENDBLUE_API_SECRET
@@ -762,7 +766,7 @@ This is a monorepo for A1DE, a personal family AI assistant.
 ## Architecture
 - Native Swift iOS app (not Expo/React Native) using SwiftUI
 - TypeScript backend on GCP Cloud Run (Hono framework)
-- PostgreSQL + pgvector on Cloud SQL for context/memory
+- PostgreSQL + pgvector on Supabase for context/memory
 - Claude Sonnet API with tool use for intelligence
 - Channels: Sendblue (iMessage), Kapso (WhatsApp), Twilio (SMS)
 

@@ -1,0 +1,8 @@
+{
+  "name": "a1de",
+  "private": true,
+  "scripts": {
+    "dev:app": "pnpm --filter @a1de/web-app run dev",
+    "dev:backend": "pnpm --filter @a1de/backend run dev"
+  }
+}
