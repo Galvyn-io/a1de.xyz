@@ -17,6 +17,12 @@ export const PROVIDERS = {
     authType: 'google' as const,
     scopes: ['https://www.googleapis.com/auth/photoslibrary.readonly'],
   },
+  plaid: {
+    type: 'banking' as const,
+    provider: 'plaid' as const,
+    authType: 'plaid' as const,
+    scopes: ['transactions'],
+  },
 } as const;
 
 export type ProviderKey = keyof typeof PROVIDERS;

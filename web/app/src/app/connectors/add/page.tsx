@@ -1,13 +1,82 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { usePlaidLink } from 'react-plaid-link';
 import { createClient } from '@/lib/supabase/client';
 import { CONNECTOR_OPTIONS, PROVIDER_META } from '@/lib/connectors';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
+function PlaidLinkButton({ label, onDone }: { label: string; onDone: () => void }) {
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const startPlaid = async () => {
+    setLoading(true);
+    setError('');
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setError('Not authenticated'); setLoading(false); return; }
+
+    const res = await fetch(`${BACKEND_URL}/connectors/plaid/link-token`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    if (data.link_token) {
+      setLinkToken(data.link_token);
+    } else {
+      setError('Failed to initialize Plaid');
+      setLoading(false);
+    }
+  };
+
+  const onSuccess = useCallback(async (publicToken: string) => {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    await fetch(`${BACKEND_URL}/connectors/plaid/exchange`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ public_token: publicToken, label }),
+    });
+    onDone();
+  }, [label, onDone]);
+
+  const { open, ready } = usePlaidLink({
+    token: linkToken,
+    onSuccess,
+    onExit: () => { setLoading(false); setLinkToken(null); },
+  });
+
+  // Auto-open when link token is ready
+  if (linkToken && ready) {
+    setTimeout(() => open(), 0);
+  }
+
+  return (
+    <>
+      <button
+        onClick={startPlaid}
+        disabled={loading}
+        className="flex-1 rounded-xl bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200 disabled:opacity-50"
+      >
+        {loading ? 'Connecting...' : 'Connect Bank'}
+      </button>
+      {error && <p className="text-sm text-red-400">{error}</p>}
+    </>
+  );
+}
+
 export default function AddConnectorPage() {
+  const router = useRouter();
   const [step, setStep] = useState<'pick' | 'label'>('pick');
   const [selected, setSelected] = useState<(typeof CONNECTOR_OPTIONS)[number] | null>(null);
   const [connectorLabel, setConnectorLabel] = useState('');
@@ -19,7 +88,7 @@ export default function AddConnectorPage() {
     setStep('label');
   };
 
-  const handleConnect = async (e: React.FormEvent) => {
+  const handleGoogleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selected) return;
 
@@ -92,7 +161,7 @@ export default function AddConnectorPage() {
       )}
 
       {step === 'label' && selected && (
-        <form onSubmit={handleConnect} className="space-y-6">
+        <form onSubmit={selected.authFlow === 'google' ? handleGoogleConnect : (e) => e.preventDefault()} className="space-y-6">
           <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
             <span className="text-lg">{PROVIDER_META[selected.provider].icon}</span>
             <span className="text-sm font-medium">{PROVIDER_META[selected.provider].label}</span>
@@ -107,7 +176,7 @@ export default function AddConnectorPage() {
               type="text"
               value={connectorLabel}
               onChange={(e) => setConnectorLabel(e.target.value)}
-              placeholder="e.g. Personal, Work, Side Hustle"
+              placeholder={selected.authFlow === 'plaid' ? 'e.g. Chase, Amex, Savings' : 'e.g. Personal, Work, Side Hustle'}
               className="mt-2 w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm placeholder-zinc-600 outline-none transition-colors focus:border-zinc-600"
               autoFocus
             />
@@ -118,18 +187,26 @@ export default function AddConnectorPage() {
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => { setStep('pick'); setSelected(null); setConnectorLabel(''); }}
+              onClick={() => { setStep('pick'); setSelected(null); setConnectorLabel(''); setError(''); }}
               className="rounded-xl border border-zinc-800 px-4 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
             >
               Back
             </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 rounded-xl bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200 disabled:opacity-50"
-            >
-              {loading ? 'Connecting...' : 'Connect with Google'}
-            </button>
+
+            {selected.authFlow === 'plaid' ? (
+              <PlaidLinkButton
+                label={connectorLabel.trim() || 'Bank Account'}
+                onDone={() => router.push('/connectors?success=true')}
+              />
+            ) : (
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 rounded-xl bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200 disabled:opacity-50"
+              >
+                {loading ? 'Connecting...' : 'Connect with Google'}
+              </button>
+            )}
           </div>
         </form>
       )}

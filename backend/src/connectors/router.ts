@@ -5,6 +5,7 @@ import { config } from '../config.js';
 import { getProvider } from './providers.js';
 import { buildAuthUrl, verifyState, exchangeCode } from './google-oauth.js';
 import { upsertCredential, createConnector, listConnectors, updateConnector, deleteConnector } from './db.js';
+import { createLinkToken, exchangePublicToken } from './plaid.js';
 
 type AuthEnv = { Variables: { user: User } };
 
@@ -100,6 +101,52 @@ connectors.delete('/:id', requireAuth, async (c) => {
     return c.json({ error: 'Connector not found' }, 404);
   }
   return c.json({ ok: true });
+});
+
+// Plaid: Create a link token for Plaid Link widget
+connectors.post('/plaid/link-token', requireAuth, async (c) => {
+  const user = c.get('user');
+  const linkToken = await createLinkToken(user.id);
+  return c.json({ link_token: linkToken });
+});
+
+// Plaid: Exchange public token after user connects a bank
+connectors.post('/plaid/exchange', requireAuth, async (c) => {
+  const user = c.get('user');
+  const body = await c.req.json<{ public_token: string; label?: string }>();
+
+  if (!body.public_token) {
+    return c.json({ error: 'public_token is required' }, 400);
+  }
+
+  try {
+    const { accessToken, itemId } = await exchangePublicToken(body.public_token);
+
+    // Store as a connector credential
+    const credential = await upsertCredential({
+      userId: user.id,
+      provider: 'plaid',
+      accountId: itemId,
+      accessToken,
+      refreshToken: null,
+      scopes: ['transactions'],
+      expiresAt: null, // Plaid tokens don't expire
+    });
+
+    // Create the connector
+    await createConnector({
+      userId: user.id,
+      credentialId: credential.id,
+      type: 'banking',
+      provider: 'plaid',
+      label: body.label || 'Bank Account',
+    });
+
+    return c.json({ ok: true });
+  } catch (err) {
+    console.error('Plaid exchange error:', err);
+    return c.json({ error: 'Failed to connect bank account' }, 500);
+  }
 });
 
 export { connectors };

@@ -14,6 +14,9 @@ const envSchema = z.object({
   LANGFUSE_PUBLIC_KEY: z.string().min(1),
   LANGFUSE_SECRET_KEY: z.string().min(1),
   LANGFUSE_BASE_URL: z.string().url(),
+  PLAID_CLIENT_ID: z.string().min(1),
+  PLAID_SECRET: z.string().min(1),
+  PLAID_ENV: z.enum(['sandbox', 'production']).default('production'),
 });
 
 export const config = envSchema.parse(process.env);

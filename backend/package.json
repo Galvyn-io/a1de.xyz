@@ -17,6 +17,7 @@
     "hono": "^4.7.6",
     "jose": "^6.2.2",
     "langfuse": "^3.38.20",
+    "plaid": "^41.4.0",
     "zod": "^3.24.3"
   },
   "devDependencies": {
