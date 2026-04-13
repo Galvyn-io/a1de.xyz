@@ -9,6 +9,7 @@ import { buildSystemPrompt, buildMessages, callClaude, streamClaude } from './cl
 import { langfuse } from '../telemetry.js';
 import { MEMORY_TOOLS, executeTool } from '../memory/tools.js';
 import { getAlwaysInjectMemories } from '../memory/db.js';
+import { extractMemoriesFromConversation } from '../memory/extractor.js';
 
 type AuthEnv = { Variables: { user: User } };
 
@@ -229,6 +230,17 @@ chat.get('/stream', requireAuth, async (c) => {
       await stream.writeSSE({
         data: JSON.stringify({ done: true, message_id: saved.id }),
       });
+
+      // Background: extract memories from this conversation turn (fire-and-forget)
+      const lastUserMessage = history.filter((m) => m.role === 'user').pop();
+      if (lastUserMessage?.content && finalContent) {
+        extractMemoriesFromConversation({
+          userId: user.id,
+          conversationId,
+          userMessage: lastUserMessage.content,
+          assistantResponse: finalContent,
+        }).catch((err) => console.error('Background extraction failed:', err));
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error('Stream error:', err);
