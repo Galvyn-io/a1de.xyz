@@ -361,9 +361,12 @@ export function ChatInterface({
             ))}
           </div>
 
-          <div className="border-t border-zinc-800 p-4">
-            <Link href="/dashboard" className="text-xs text-zinc-500 hover:text-zinc-300">
-              Back to dashboard
+          <div className="border-t border-zinc-800 p-4 space-y-2">
+            <Link href="/memories" className="block text-xs text-zinc-500 hover:text-zinc-300">
+              Memory
+            </Link>
+            <Link href="/dashboard" className="block text-xs text-zinc-500 hover:text-zinc-300">
+              Dashboard
             </Link>
           </div>
         </div>

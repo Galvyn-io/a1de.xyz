@@ -32,6 +32,12 @@ export default async function DashboardPage() {
             Chat with {profile?.assistant_name}
           </Link>
           <Link
+            href="/memories"
+            className="inline-block rounded-xl border border-zinc-800 px-6 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
+          >
+            Memory
+          </Link>
+          <Link
             href="/connectors"
             className="inline-block rounded-xl border border-zinc-800 px-6 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
           >
