@@ -28,6 +28,7 @@ export function ChatInterface({
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const messageCache = useRef<Map<string, Message[]>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -54,13 +55,28 @@ export function ChatInterface({
     return session?.access_token;
   }
 
+  // Seed cache with initial messages if provided
+  useEffect(() => {
+    if (initialConversationId && initialMessages?.length) {
+      messageCache.current.set(initialConversationId, initialMessages);
+    }
+  }, [initialConversationId, initialMessages]);
+
   async function loadMessages(conversationId: string) {
+    // Return cached messages instantly if available
+    const cached = messageCache.current.get(conversationId);
+    if (cached) {
+      setMessages(cached);
+      return;
+    }
+
     const token = await getToken();
     const res = await fetch(`${BACKEND_URL}/chat/conversations/${conversationId}/messages`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) {
       const data = await res.json();
+      messageCache.current.set(conversationId, data.messages);
       setMessages(data.messages);
     }
   }
@@ -115,6 +131,7 @@ export function ChatInterface({
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
+    messageCache.current.delete(id);
     setConversations((prev) => prev.filter((c) => c.id !== id));
     if (activeId === id) {
       setActiveId(null);
@@ -209,21 +226,22 @@ export function ChatInterface({
             }
 
             if (event.done) {
-              // Add the completed assistant message
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: event.message_id,
-                  conversation_id: conversation_id,
-                  user_id: profile.id,
-                  role: 'assistant',
-                  content: fullContent,
-                  tool_calls: null,
-                  tool_result: null,
-                  model: null,
-                  created_at: new Date().toISOString(),
-                },
-              ]);
+              const assistantMsg: Message = {
+                id: event.message_id,
+                conversation_id: conversation_id,
+                user_id: profile.id,
+                role: 'assistant',
+                content: fullContent,
+                tool_calls: null,
+                tool_result: null,
+                model: null,
+                created_at: new Date().toISOString(),
+              };
+              setMessages((prev) => {
+                const updated = [...prev, assistantMsg];
+                messageCache.current.set(conversation_id, updated);
+                return updated;
+              });
               setStreamingContent('');
             }
 
