@@ -71,11 +71,18 @@ RLS: users can SELECT/INSERT their own rows. Admins can SELECT all.
 - `/chat/[id]` — Deep link to specific conversation
 - Streaming via `fetch` + `ReadableStream` (supports auth headers, unlike `EventSource`)
 
+## Telemetry
+
+Every Claude API call is automatically traced via Langfuse + OpenTelemetry (configured in `backend/src/telemetry.ts`). Each chat stream is tagged with `userId` and `sessionId` (conversation ID) via `propagateAttributes()` in the router, so traces in Langfuse show which user and conversation generated them.
+
+Dashboard: https://us.cloud.langfuse.com
+
 ## Key files
 
 - `backend/src/chat/router.ts` — API routes
 - `backend/src/chat/db.ts` — Database operations
 - `backend/src/chat/claude.ts` — Claude API wrapper + system prompt
+- `backend/src/telemetry.ts` — Langfuse + OpenTelemetry setup
 - `web/app/src/app/chat/chat-interface.tsx` — Client component (messages, input, streaming)
 - `infra/sql/003_conversations.sql` — Schema + RLS policies
 

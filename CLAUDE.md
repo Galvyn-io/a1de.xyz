@@ -7,7 +7,8 @@ A1DE (formerly "Jarvis") is a personal family AI assistant. Monorepo with Next.j
 - **Web app:** Next.js 15 (App Router) on Vercel under the Galvyn team — `app.a1de.xyz`
 - **Backend:** TypeScript + Hono on GCP Cloud Run (project: `a1de-assistant`)
 - **Database:** PostgreSQL + pgvector on Supabase (project ref: `erwowjlaakatqsvuppzj`, region: us-west-1)
-- **Intelligence:** Claude Sonnet API (streaming chat implemented, tool use coming next)
+- **Intelligence:** Claude Sonnet 4.5 API (streaming chat implemented, tool use coming next)
+- **Telemetry:** Langfuse via OpenTelemetry (traces all Claude calls with user/session context)
 - **Design system:** Premiere v3 — Outfit font, zinc-black dark-first, 12px radii, 1.5px strokes
 
 ## Current state (Phase 0 complete, Phase 1 in progress)
@@ -20,6 +21,8 @@ A1DE (formerly "Jarvis") is a personal family AI assistant. Monorepo with Next.j
 - Backend API: connector CRUD + Google OAuth token exchange/refresh
 - Chat system: streaming Claude Sonnet responses via SSE, conversation persistence
 - Chat UI: conversation sidebar, message bubbles, streaming display
+- Langfuse telemetry: automatic tracing of all Claude API calls with token usage, latency, cost
+- Backend deployed to Cloud Run (`a1de-backend` in `us-west1`)
 - Database: `user_profiles`, `connectors`, `connector_credentials`, `conversations`, `messages` tables with RLS
 
 **What's NOT built yet:**
@@ -38,6 +41,7 @@ backend/
 └── src/
     ├── config.ts             # zod-validated env vars
     ├── index.ts              # Hono app, mounts /connectors + /chat
+    ├── telemetry.ts          # Langfuse + OpenTelemetry setup (imported first)
     ├── middleware/
     │   └── auth.ts           # JWT verification via Supabase
     ├── connectors/
@@ -115,6 +119,7 @@ The connectors list page (`web/app/src/app/connectors/page.tsx`) renders section
 - `docs/chat.md` — Chat system architecture
 - `docs/connectors.md` — Connector system architecture
 - `docs/deployment.md` — Deployment guide (Vercel + Cloud Run)
+- `backend/src/telemetry.ts` — Langfuse + OpenTelemetry instrumentation
 - `backend/src/chat/` — Chat API (streaming, Claude integration)
 - `backend/src/connectors/` — Connector OAuth + CRUD
 - `web/app/src/lib/connectors.ts` — Single source of truth for provider display metadata
