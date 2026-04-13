@@ -11,6 +11,12 @@ export const PROVIDERS = {
     authType: 'google' as const,
     scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
   },
+  google_photos: {
+    type: 'photos' as const,
+    provider: 'google_photos' as const,
+    authType: 'google' as const,
+    scopes: ['https://www.googleapis.com/auth/photoslibrary.readonly'],
+  },
 } as const;
 
 export type ProviderKey = keyof typeof PROVIDERS;

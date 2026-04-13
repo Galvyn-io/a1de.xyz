@@ -9,6 +9,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 const CONNECTOR_OPTIONS = [
   { type: 'email', provider: 'gmail', label: 'Gmail', description: 'Read your email', icon: '✉' },
   { type: 'calendar', provider: 'google_calendar', label: 'Google Calendar', description: 'Access your calendar', icon: '📅' },
+  { type: 'photos', provider: 'google_photos', label: 'Google Photos', description: 'Access your photos', icon: '📷' },
 ] as const;
 
 export default function AddConnectorPage() {

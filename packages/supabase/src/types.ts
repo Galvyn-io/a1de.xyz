@@ -8,8 +8,8 @@ export interface UserProfile {
   updated_at: string;
 }
 
-export type ConnectorType = 'email' | 'calendar' | 'health';
-export type ConnectorProvider = 'gmail' | 'google_calendar' | 'whoop' | 'apple_health';
+export type ConnectorType = 'email' | 'calendar' | 'photos' | 'health';
+export type ConnectorProvider = 'gmail' | 'google_calendar' | 'google_photos' | 'whoop' | 'apple_health';
 export type ConnectorStatus = 'active' | 'error' | 'disconnected';
 
 export interface Connector {
