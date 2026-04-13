@@ -111,3 +111,37 @@ export async function touchConversation(id: string): Promise<void> {
     .eq('id', id);
   if (error) throw error;
 }
+
+export async function updateConversation(id: string, userId: string, updates: { title?: string }): Promise<ConversationRow | null> {
+  const db = getServiceClient();
+  const { data, error } = await db
+    .from('conversations')
+    .update(updates)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select()
+    .single<ConversationRow>();
+  if (error && error.code !== 'PGRST116') throw error;
+  return data;
+}
+
+export async function deleteConversation(id: string, userId: string): Promise<boolean> {
+  const db = getServiceClient();
+  const { error } = await db
+    .from('conversations')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+  if (error) throw error;
+  return true;
+}
+
+export async function setConversationTitle(id: string, title: string): Promise<void> {
+  const db = getServiceClient();
+  const { error } = await db
+    .from('conversations')
+    .update({ title })
+    .eq('id', id)
+    .is('title', null);
+  if (error) throw error;
+}

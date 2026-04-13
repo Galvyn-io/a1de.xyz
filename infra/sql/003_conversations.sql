@@ -20,6 +20,11 @@ CREATE POLICY "Users can insert own conversations"
     ON public.conversations FOR INSERT
     WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Users can update own conversations"
+    ON public.conversations FOR UPDATE
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
 CREATE POLICY "Users can delete own conversations"
     ON public.conversations FOR DELETE
     USING (auth.uid() = user_id);

@@ -25,6 +25,8 @@ export function ChatInterface({
   const [streaming, setStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -83,6 +85,39 @@ export function ChatInterface({
     if (res.ok) {
       const data = await res.json();
       setConversations(data.conversations);
+    }
+  }
+
+  async function renameConversation(id: string, title: string) {
+    if (!title.trim()) return;
+    const token = await getToken();
+    const res = await fetch(`${BACKEND_URL}/chat/conversations/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ title: title.trim() }),
+    });
+    if (res.ok) {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, title: title.trim() } : c)),
+      );
+    }
+    setEditingId(null);
+  }
+
+  async function deleteConversation(id: string) {
+    if (!confirm('Delete this conversation?')) return;
+    const token = await getToken();
+    await fetch(`${BACKEND_URL}/chat/conversations/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (activeId === id) {
+      setActiveId(null);
+      setMessages([]);
     }
   }
 
@@ -237,17 +272,60 @@ export function ChatInterface({
 
           <div className="flex-1 overflow-y-auto p-2">
             {conversations.map((c) => (
-              <button
+              <div
                 key={c.id}
-                onClick={() => selectConversation(c.id)}
-                className={`mb-1 w-full truncate rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                className={`group mb-1 flex items-center rounded-lg transition-colors ${
                   activeId === c.id
                     ? 'bg-zinc-800 text-white'
                     : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
                 }`}
               >
-                {c.title ?? 'New conversation'}
-              </button>
+                {editingId === c.id ? (
+                  <input
+                    autoFocus
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') renameConversation(c.id, editTitle);
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                    onBlur={() => renameConversation(c.id, editTitle)}
+                    className="flex-1 bg-transparent px-3 py-2 text-sm outline-none"
+                  />
+                ) : (
+                  <>
+                    <button
+                      onClick={() => selectConversation(c.id)}
+                      className="flex-1 truncate px-3 py-2 text-left text-sm"
+                    >
+                      {c.title ?? 'New conversation'}
+                    </button>
+                    <div className="flex shrink-0 opacity-0 group-hover:opacity-100">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingId(c.id);
+                          setEditTitle(c.title ?? '');
+                        }}
+                        className="px-1.5 py-2 text-xs text-zinc-500 hover:text-zinc-300"
+                        title="Rename"
+                      >
+                        &#9998;
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteConversation(c.id);
+                        }}
+                        className="px-1.5 py-2 text-xs text-zinc-500 hover:text-red-400"
+                        title="Delete"
+                      >
+                        &#10005;
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             ))}
           </div>
 

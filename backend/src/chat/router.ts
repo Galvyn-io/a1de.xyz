@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import { requireAuth } from '../middleware/auth.js';
 import { config } from '../config.js';
-import { createConversation, getConversation, listConversations, addMessage, getMessages, touchConversation } from './db.js';
+import { createConversation, getConversation, listConversations, addMessage, getMessages, touchConversation, updateConversation, deleteConversation, setConversationTitle } from './db.js';
 import { buildSystemPrompt, buildMessages, createStream } from './claude.js';
 import { propagateAttributes } from '../telemetry.js';
 
@@ -33,12 +33,20 @@ chat.post('/', requireAuth, async (c) => {
     conversationId = conversation.id;
   }
 
+  const messageText = body.message.trim();
+
   const userMessage = await addMessage({
     conversationId,
     userId: user.id,
     role: 'user',
-    content: body.message.trim(),
+    content: messageText,
   });
+
+  // Auto-title new conversations with the first message (truncated)
+  if (!body.conversation_id) {
+    const title = messageText.length > 60 ? messageText.slice(0, 57) + '...' : messageText;
+    await setConversationTitle(conversationId, title);
+  }
 
   return c.json({ conversation_id: conversationId, message_id: userMessage.id });
 });
@@ -135,6 +143,37 @@ chat.get('/conversations/:id/messages', requireAuth, async (c) => {
   const id = c.req.param('id')!;
   const messages = await getMessages(id, user.id);
   return c.json({ messages });
+});
+
+// Rename a conversation
+chat.patch('/conversations/:id', requireAuth, async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id')!;
+  const body = await c.req.json<{ title: string }>();
+
+  if (!body.title?.trim()) {
+    return c.json({ error: 'Title is required' }, 400);
+  }
+
+  const updated = await updateConversation(id, user.id, { title: body.title.trim() });
+  if (!updated) {
+    return c.json({ error: 'Conversation not found' }, 404);
+  }
+  return c.json({ conversation: updated });
+});
+
+// Delete a conversation
+chat.delete('/conversations/:id', requireAuth, async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id')!;
+
+  const conversation = await getConversation(id, user.id);
+  if (!conversation) {
+    return c.json({ error: 'Conversation not found' }, 404);
+  }
+
+  await deleteConversation(id, user.id);
+  return c.json({ ok: true });
 });
 
 export { chat };
