@@ -10,6 +10,7 @@ const envSchema = z.object({
   OAUTH_CALLBACK_URL: z.string().url(),
   FRONTEND_URL: z.string().url(),
   OAUTH_STATE_SECRET: z.string().min(32),
+  ANTHROPIC_API_KEY: z.string().min(1),
 });
 
 export const config = envSchema.parse(process.env);

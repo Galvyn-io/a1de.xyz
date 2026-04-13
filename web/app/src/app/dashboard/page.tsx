@@ -24,12 +24,20 @@ export default async function DashboardPage() {
           <p className="text-sm text-zinc-500">Signed in as</p>
           <p className="mt-1 font-medium">{user?.email}</p>
         </div>
-        <Link
-          href="/connectors"
-          className="inline-block rounded-xl border border-zinc-800 px-6 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
-        >
-          Manage Connectors
-        </Link>
+        <div className="flex flex-col items-center gap-3">
+          <Link
+            href="/chat"
+            className="inline-block rounded-xl bg-white px-6 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+          >
+            Chat with {profile?.assistant_name}
+          </Link>
+          <Link
+            href="/connectors"
+            className="inline-block rounded-xl border border-zinc-800 px-6 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
+          >
+            Manage Connectors
+          </Link>
+        </div>
       </div>
     </div>
   );
