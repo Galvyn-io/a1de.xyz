@@ -1,6 +1,3 @@
-// Telemetry must be imported before any instrumented modules
-import './telemetry.js';
-
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';

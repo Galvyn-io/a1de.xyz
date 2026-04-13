@@ -1,17 +1,8 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { LangfuseSpanProcessor } from '@langfuse/otel';
-import { AnthropicInstrumentation } from '@arizeai/openinference-instrumentation-anthropic';
-import Anthropic from '@anthropic-ai/sdk';
+import Langfuse from 'langfuse';
+import { config } from './config.js';
 
-const instrumentation = new AnthropicInstrumentation();
-instrumentation.manuallyInstrument(Anthropic);
-
-const sdk = new NodeSDK({
-  spanProcessors: [new LangfuseSpanProcessor()],
-  instrumentations: [instrumentation],
+export const langfuse = new Langfuse({
+  publicKey: config.LANGFUSE_PUBLIC_KEY,
+  secretKey: config.LANGFUSE_SECRET_KEY,
+  baseUrl: config.LANGFUSE_BASE_URL,
 });
-
-sdk.start();
-
-export { sdk };
-export { propagateAttributes } from '@langfuse/tracing';

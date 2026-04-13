@@ -6,7 +6,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { config } from '../config.js';
 import { createConversation, getConversation, listConversations, addMessage, getMessages, touchConversation, updateConversation, deleteConversation, setConversationTitle } from './db.js';
 import { buildSystemPrompt, buildMessages, createStream } from './claude.js';
-import { propagateAttributes } from '../telemetry.js';
+import { langfuse } from '../telemetry.js';
 
 type AuthEnv = { Variables: { user: User } };
 
@@ -84,49 +84,71 @@ chat.get('/stream', requireAuth, async (c) => {
   c.header('X-Accel-Buffering', 'no');
 
   return streamSSE(c, async (stream) => {
-    await propagateAttributes(
-      {
+    const trace = langfuse.trace({
+      name: 'chat',
+      userId: user.id,
+      sessionId: conversationId,
+      tags: ['chat'],
+      input: messages[messages.length - 1]?.content,
+    });
+
+    const generation = trace.generation({
+      name: 'claude-stream',
+      model: 'claude-sonnet-4-5-20250929',
+      input: { system: systemPrompt, messages },
+    });
+
+    let fullContent = '';
+    let model = '';
+
+    try {
+      const response = createStream({ messages, systemPrompt });
+
+      response.on('text', (text) => {
+        fullContent += text;
+        stream.writeSSE({ data: JSON.stringify({ delta: text }) });
+      });
+
+      const finalMessage = await response.finalMessage();
+      model = finalMessage.model;
+
+      generation.end({
+        output: fullContent,
+        usage: {
+          input: finalMessage.usage.input_tokens,
+          output: finalMessage.usage.output_tokens,
+        },
+      });
+
+      // Save the assistant message
+      const saved = await addMessage({
+        conversationId,
         userId: user.id,
-        sessionId: conversationId,
-        tags: ['chat'],
-      },
-      async () => {
-        let fullContent = '';
-        let model = '';
+        role: 'assistant',
+        content: fullContent,
+        model,
+      });
 
-        try {
-          const response = createStream({ messages, systemPrompt });
+      await touchConversation(conversationId);
 
-          response.on('text', (text) => {
-            fullContent += text;
-            stream.writeSSE({ data: JSON.stringify({ delta: text }) });
-          });
+      trace.update({ output: fullContent });
 
-          const finalMessage = await response.finalMessage();
-          model = finalMessage.model;
+      await stream.writeSSE({
+        data: JSON.stringify({ done: true, message_id: saved.id }),
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Stream error:', err);
 
-          // Save the assistant message
-          const saved = await addMessage({
-            conversationId,
-            userId: user.id,
-            role: 'assistant',
-            content: fullContent,
-            model,
-          });
+      generation.end({ level: 'ERROR', statusMessage: errorMessage });
+      trace.update({ output: errorMessage, tags: ['chat', 'error'] });
 
-          await touchConversation(conversationId);
-
-          await stream.writeSSE({
-            data: JSON.stringify({ done: true, message_id: saved.id }),
-          });
-        } catch (err) {
-          console.error('Stream error:', err);
-          await stream.writeSSE({
-            data: JSON.stringify({ error: 'Failed to generate response' }),
-          });
-        }
-      },
-    );
+      await stream.writeSSE({
+        data: JSON.stringify({ error: errorMessage }),
+      });
+    } finally {
+      await langfuse.flushAsync();
+    }
   });
 });
 

@@ -10,11 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
-    "@arizeai/openinference-instrumentation-anthropic": "^0.1.9",
     "@hono/node-server": "^1.14.1",
-    "@langfuse/otel": "^5.1.0",
-    "@langfuse/tracing": "^5.1.0",
-    "@opentelemetry/sdk-node": "^0.214.0",
     "@supabase/supabase-js": "^2.49.4",
     "googleapis": "^171.4.0",
     "hono": "^4.7.6",

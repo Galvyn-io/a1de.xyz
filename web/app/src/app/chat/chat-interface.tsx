@@ -25,6 +25,7 @@ export function ChatInterface({
   const [streaming, setStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -128,6 +129,7 @@ export function ChatInterface({
     setInput('');
     setStreaming(true);
     setStreamingContent('');
+    setError(null);
 
     // Optimistically add user message
     const optimisticMsg: Message = {
@@ -226,7 +228,7 @@ export function ChatInterface({
             }
 
             if (event.error) {
-              console.error('Stream error:', event.error);
+              setError(event.error);
             }
           } catch {
             // ignore malformed JSON lines
@@ -236,7 +238,8 @@ export function ChatInterface({
 
       await refreshConversations();
     } catch (err) {
-      console.error('Send error:', err);
+      const msg = err instanceof Error ? err.message : 'Something went wrong';
+      setError(msg);
     } finally {
       setStreaming(false);
       setStreamingContent('');
@@ -412,6 +415,16 @@ export function ChatInterface({
             <div ref={messagesEndRef} />
           </div>
         </div>
+
+        {/* Error */}
+        {error && (
+          <div className="mx-auto flex max-w-2xl items-center justify-between border-t border-red-800 bg-red-950/50 px-4 py-2.5">
+            <p className="text-sm text-red-400">{error}</p>
+            <button onClick={() => setError(null)} className="text-xs text-red-500 hover:text-red-300">
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Input */}
         <div className="border-t border-zinc-800 px-4 py-4">
