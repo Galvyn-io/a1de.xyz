@@ -1,91 +1,113 @@
 # A1DE — Claude Code Project Context
 
-A1DE (formerly "Jarvis") is a personal family AI assistant. Monorepo with Swift iOS app, TypeScript backend, and infrastructure.
+A1DE (formerly "Jarvis") is a personal family AI assistant. Monorepo with Next.js web app, TypeScript backend, and infrastructure. iOS app planned for Phase 3.
 
 ## Architecture
 
+- **Web app:** Next.js 15 (App Router) on Vercel under the Galvyn team — `app.a1de.xyz`
 - **Backend:** TypeScript + Hono on GCP Cloud Run (project: `a1de-assistant`)
 - **Database:** PostgreSQL + pgvector on Supabase (project ref: `erwowjlaakatqsvuppzj`, region: us-west-1)
-- **Intelligence:** Claude Sonnet API with tool use
-- **iOS app:** Native Swift/SwiftUI (not Expo/React Native)
-- **Channels:** Sendblue (iMessage), Kapso (WhatsApp), Twilio (SMS)
+- **Intelligence:** Claude Sonnet API with tool use (not yet implemented)
 - **Design system:** Premiere v3 — Outfit font, zinc-black dark-first, 12px radii, 1.5px strokes
 
-## Current phase
+## Current state (Phase 0 complete, Phase 1 in progress)
 
-Phase 1: REST API + Gmail reading + Claude reasoning. No messaging channels yet.
+**What's built:**
+- Google OAuth login + registration flow (Supabase Auth)
+- Admin dashboard (user list, admin-only access)
+- Connector system: OAuth flow to connect Gmail, Google Calendar, Google Photos
+- Connector management UI (add, view, disconnect)
+- Backend API: connector CRUD + Google OAuth token exchange/refresh
+- Database: `user_profiles`, `connectors`, `connector_credentials` tables with RLS
 
-### Approved implementation plan
+**What's NOT built yet:**
+- `POST /chat` endpoint
+- Claude API integration / orchestrator / tool-use loop
+- Gmail/Calendar/Photos API data access (OAuth tokens stored, but no tool implementations)
+- Conversation history
+- A1DE system prompt
+- Messaging channels (Sendblue, Kapso, Twilio)
+- iOS app
 
-Build a Hono server with a single `POST /chat` endpoint that:
-1. Loads conversation history from Supabase
-2. Assembles context (system prompt + history + tools)
-3. Calls Claude Sonnet with `search_email` tool
-4. Executes Gmail API tool calls in a loop (max 10 iterations)
-5. Saves conversation and returns response
+## Repo structure (actual)
 
-**File tree (Phase 1):**
 ```
 backend/
-├── package.json              # pnpm, ESM, TypeScript
-├── tsconfig.json             # strict, NodeNext
-├── .env.example
-├── Dockerfile                # multi-stage, node:22-slim
+├── package.json
+├── tsconfig.json
+├── Dockerfile
+└── src/
+    ├── config.ts             # zod-validated env vars
+    ├── index.ts              # Hono app, mounts /connectors
+    ├── middleware/
+    │   └── auth.ts           # JWT verification via Supabase
+    └── connectors/
+        ├── router.ts         # CRUD + OAuth callback routes
+        ├── providers.ts      # Provider registry (scopes, auth type)
+        ├── db.ts             # Supabase queries (service_role)
+        └── google-oauth.ts   # OAuth URL, code exchange, token refresh
+
+web/app/
 ├── src/
-│   ├── config.ts             # zod-validated env vars
-│   ├── index.ts              # Hono + @hono/node-server, port 8080
-│   ├── channels/
-│   │   └── app-api.ts        # POST /chat endpoint
-│   ├── orchestrator/
-│   │   ├── context-assembly.ts  # build Claude request
-│   │   └── claude.ts            # tool-use loop
-│   ├── tools/
-│   │   ├── registry.ts       # TOOL_DEFINITIONS + executeTool dispatcher
-│   │   └── email.ts          # search_email → Gmail API
-│   ├── context/
-│   │   ├── db.ts             # Supabase client singleton
-│   │   └── conversation.ts   # load/save conversation as JSONB
-│   ├── identity/
-│   │   └── a1de.ts           # A1DE system prompt template
-│   └── auth/
-│       └── google-oauth.ts   # OAuth2 client, auto-refresh, persist tokens to DB
-└── infra/
-    └── sql/
-        └── schema.sql        # conversations + oauth_tokens tables
+│   ├── app/
+│   │   ├── layout.tsx        # Root layout (Outfit font, dark mode)
+│   │   ├── page.tsx          # Redirect to login/dashboard
+│   │   ├── login/            # Google OAuth login
+│   │   ├── register/         # Choose assistant name
+│   │   ├── dashboard/        # Protected dashboard
+│   │   ├── connectors/       # List, add, manage connectors
+│   │   ├── admin/            # Admin-only user list
+│   │   └── auth/callback/    # OAuth callback handler
+│   ├── lib/
+│   │   ├── connectors.ts     # Shared provider metadata (labels, icons, options)
+│   │   └── supabase/         # Client, server, types
+│   └── middleware.ts         # Session refresh
+└── package.json
+
+packages/supabase/             # Shared types (ConnectorType, ConnectorProvider, etc.)
+
+infra/sql/
+├── 001_user_profiles.sql     # user_profiles table, RLS, admin trigger
+└── 002_connectors.sql        # connectors + connector_credentials tables, RLS
+
+docs/
+├── auth.md                   # Authentication architecture
+├── connectors.md             # Connector system architecture
+└── deployment.md             # Vercel + Cloud Run deployment
 ```
 
-**Dependencies:** hono, @hono/node-server, @anthropic-ai/sdk, @supabase/supabase-js, googleapis, zod. Dev: typescript, tsx, @types/node.
+## Adding a new connector provider
 
-**Build order:**
-1. Scaffold (package.json, tsconfig, pnpm install)
-2. config.ts → index.ts + app-api.ts stub → verify with curl
-3. db.ts → schema.sql on Supabase → conversation.ts
-4. a1de.ts → context-assembly.ts → claude.ts (no tools) → test chat
-5. google-oauth.ts → email.ts + registry.ts → test email tool use
-6. Dockerfile → Cloud Run deploy
+When adding a new provider, update ALL of these locations:
+1. `backend/src/connectors/providers.ts` — Add provider config (type, scopes, authType)
+2. `packages/supabase/src/types.ts` — Add to `ConnectorType` and `ConnectorProvider` unions
+3. `web/app/src/lib/supabase/types.ts` — Keep in sync with package types
+4. `web/app/src/lib/connectors.ts` — Add to `PROVIDER_META` and `CONNECTOR_OPTIONS`
 
-**Google OAuth:** One-time manual setup via OAuth Playground for refresh token, backend auto-refreshes thereafter.
+The connectors list page (`web/app/src/app/connectors/page.tsx`) renders sections dynamically — no changes needed there. The connector card also uses `PROVIDER_META` for labels/icons.
 
 ## Check-in rules
 
-- Before every commit: update relevant architecture/usage docs in `/docs`
+- Before every commit: update relevant docs in `/docs`
 - Always write release notes for every commit
-- Use **pnpm** (not npm) for all backend package management
+- Use **pnpm** (not npm) for all package management
+- Always pass `--project` to gcloud commands, never rely on defaults
 
 ## Code style
 
 - TypeScript: strict mode, async/await, no classes (functional style)
-- Swift: SwiftUI, MVVM, async/await, no UIKit unless necessary
-- SQL: PostgreSQL 15+, snake_case, use pgvector for embeddings
-- ESM: all imports use `.js` extensions (TypeScript + NodeNext requirement)
+- SQL: PostgreSQL 15+, snake_case
+- ESM: all imports use `.js` extensions in backend (TypeScript + NodeNext)
+- Web app: path aliases with `@/` prefix
 - All secrets via environment variables, never hardcoded
+- Provider metadata (labels, icons) lives in `web/app/src/lib/connectors.ts` — don't duplicate in components
 
 ## Key files
 
-- `SPEC.md` — Full 13-section project specification
-- `backend/src/orchestrator/` — Claude API client + tool-use loop
-- `backend/src/tools/` — Tool implementations Claude calls
-- `backend/src/context/` — Supabase client + conversation history
-- `backend/src/auth/` — Google OAuth token management
-- `apps/ios/A1DE/Design/` — Premiere v3 tokens (Phase 3)
-- `infra/sql/schema.sql` — Database schema
+- `SPEC.md` — Full project specification (aspirational — describes the complete vision, not just current state)
+- `docs/auth.md` — Authentication architecture
+- `docs/connectors.md` — Connector system architecture
+- `docs/deployment.md` — Deployment guide (Vercel + Cloud Run)
+- `backend/src/connectors/` — Connector OAuth + CRUD
+- `web/app/src/lib/connectors.ts` — Single source of truth for provider display metadata
+- `infra/sql/` — Database migrations

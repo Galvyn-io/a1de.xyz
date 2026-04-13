@@ -4,24 +4,9 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Connector } from '@/lib/supabase/types';
+import { PROVIDER_META } from '@/lib/connectors';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
-
-const providerLabels: Record<string, string> = {
-  gmail: 'Gmail',
-  google_calendar: 'Google Calendar',
-  google_photos: 'Google Photos',
-  whoop: 'Whoop',
-  apple_health: 'Apple Health',
-};
-
-const providerIcons: Record<string, string> = {
-  gmail: '✉',
-  google_calendar: '📅',
-  google_photos: '📷',
-  whoop: '💪',
-  apple_health: '❤',
-};
 
 export function ConnectorCard({ connector }: { connector: Connector }) {
   const [deleting, setDeleting] = useState(false);
@@ -46,11 +31,11 @@ export function ConnectorCard({ connector }: { connector: Connector }) {
     <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-800 text-xs font-bold">
-          {providerIcons[connector.provider] ?? '🔗'}
+          {PROVIDER_META[connector.provider]?.icon ?? '🔗'}
         </div>
         <div>
           <p className="text-sm font-medium">{connector.label}</p>
-          <p className="text-xs text-zinc-500">{providerLabels[connector.provider] ?? connector.provider}</p>
+          <p className="text-xs text-zinc-500">{PROVIDER_META[connector.provider]?.label ?? connector.provider}</p>
         </div>
       </div>
       <div className="flex items-center gap-3">

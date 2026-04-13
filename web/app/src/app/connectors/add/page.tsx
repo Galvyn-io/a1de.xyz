@@ -3,14 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { CONNECTOR_OPTIONS, PROVIDER_META } from '@/lib/connectors';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
-
-const CONNECTOR_OPTIONS = [
-  { type: 'email', provider: 'gmail', label: 'Gmail', description: 'Read your email', icon: '✉' },
-  { type: 'calendar', provider: 'google_calendar', label: 'Google Calendar', description: 'Access your calendar', icon: '📅' },
-  { type: 'photos', provider: 'google_photos', label: 'Google Photos', description: 'Access your photos', icon: '📷' },
-] as const;
 
 export default function AddConnectorPage() {
   const [step, setStep] = useState<'pick' | 'label'>('pick');
@@ -85,10 +80,10 @@ export default function AddConnectorPage() {
               className="flex w-full items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-4 text-left transition-colors hover:border-zinc-600"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-lg">
-                {option.icon}
+                {PROVIDER_META[option.provider].icon}
               </div>
               <div>
-                <p className="text-sm font-medium">{option.label}</p>
+                <p className="text-sm font-medium">{PROVIDER_META[option.provider].label}</p>
                 <p className="text-xs text-zinc-500">{option.description}</p>
               </div>
             </button>
@@ -99,8 +94,8 @@ export default function AddConnectorPage() {
       {step === 'label' && selected && (
         <form onSubmit={handleConnect} className="space-y-6">
           <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
-            <span className="text-lg">{selected.icon}</span>
-            <span className="text-sm font-medium">{selected.label}</span>
+            <span className="text-lg">{PROVIDER_META[selected.provider].icon}</span>
+            <span className="text-sm font-medium">{PROVIDER_META[selected.provider].label}</span>
           </div>
 
           <div>
