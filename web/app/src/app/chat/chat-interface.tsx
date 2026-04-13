@@ -399,15 +399,17 @@ export function ChatInterface({
             {streaming && streamingContent && (
               <div className="flex justify-start">
                 <div className="max-w-[80%] rounded-2xl bg-zinc-800 px-4 py-2.5 text-sm text-zinc-100">
-                  <div className="whitespace-pre-wrap">{streamingContent}</div>
+                  <div className="whitespace-pre-wrap cursor-blink">{streamingContent}</div>
                 </div>
               </div>
             )}
 
             {streaming && !streamingContent && (
               <div className="flex justify-start">
-                <div className="rounded-2xl bg-zinc-800 px-4 py-2.5 text-sm text-zinc-500">
-                  Thinking...
+                <div className="rounded-2xl bg-zinc-800 px-4 py-2.5 text-sm text-zinc-400">
+                  <span className="thinking-dots">
+                    <span>.</span><span>.</span><span>.</span>
+                  </span>
                 </div>
               </div>
             )}
