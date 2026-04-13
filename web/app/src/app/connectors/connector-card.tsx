@@ -10,8 +10,17 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 const providerLabels: Record<string, string> = {
   gmail: 'Gmail',
   google_calendar: 'Google Calendar',
+  google_photos: 'Google Photos',
   whoop: 'Whoop',
   apple_health: 'Apple Health',
+};
+
+const providerIcons: Record<string, string> = {
+  gmail: '✉',
+  google_calendar: '📅',
+  google_photos: '📷',
+  whoop: '💪',
+  apple_health: '❤',
 };
 
 export function ConnectorCard({ connector }: { connector: Connector }) {
@@ -37,7 +46,7 @@ export function ConnectorCard({ connector }: { connector: Connector }) {
     <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-800 text-xs font-bold">
-          {connector.provider === 'gmail' ? '✉' : '📅'}
+          {providerIcons[connector.provider] ?? '🔗'}
         </div>
         <div>
           <p className="text-sm font-medium">{connector.label}</p>

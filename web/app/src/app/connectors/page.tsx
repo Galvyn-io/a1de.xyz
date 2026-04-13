@@ -19,8 +19,12 @@ export default async function ConnectorsPage({
     .order('created_at', { ascending: false })
     .returns<Connector[]>();
 
-  const emailConnectors = connectors?.filter((c) => c.type === 'email') ?? [];
-  const calendarConnectors = connectors?.filter((c) => c.type === 'calendar') ?? [];
+  const sections = Object.entries(
+    (connectors ?? []).reduce<Record<string, Connector[]>>((acc, c) => {
+      (acc[c.type] ??= []).push(c);
+      return acc;
+    }, {}),
+  );
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
@@ -58,27 +62,16 @@ export default async function ConnectorsPage({
         </div>
       )}
 
-      {emailConnectors.length > 0 && (
-        <section className="mb-8">
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-zinc-500">Email</h2>
+      {sections.map(([type, items]) => (
+        <section key={type} className="mb-8">
+          <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-zinc-500">{type}</h2>
           <div className="space-y-3">
-            {emailConnectors.map((c) => (
+            {items.map((c) => (
               <ConnectorCard key={c.id} connector={c} />
             ))}
           </div>
         </section>
-      )}
-
-      {calendarConnectors.length > 0 && (
-        <section className="mb-8">
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-zinc-500">Calendar</h2>
-          <div className="space-y-3">
-            {calendarConnectors.map((c) => (
-              <ConnectorCard key={c.id} connector={c} />
-            ))}
-          </div>
-        </section>
-      )}
+      ))}
 
       <div className="mt-8">
         <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-zinc-200">
