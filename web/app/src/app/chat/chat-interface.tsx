@@ -25,6 +25,7 @@ export function ChatInterface({
   const [streaming, setStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -220,7 +221,16 @@ export function ChatInterface({
           try {
             const event = JSON.parse(payload);
 
+            if (event.tool_call) {
+              const toolName = event.tool_call.name;
+              const label = toolName === 'search_memory' ? 'Searching memory...'
+                : toolName === 'save_fact' ? 'Saving to memory...'
+                : `Running ${toolName}...`;
+              setToolStatus(label);
+            }
+
             if (event.delta) {
+              setToolStatus(null);
               fullContent += event.delta;
               setStreamingContent(fullContent);
             }
@@ -261,6 +271,7 @@ export function ChatInterface({
     } finally {
       setStreaming(false);
       setStreamingContent('');
+      setToolStatus(null);
     }
   }
 
@@ -425,9 +436,13 @@ export function ChatInterface({
             {streaming && !streamingContent && (
               <div className="flex justify-start">
                 <div className="rounded-2xl bg-zinc-800 px-4 py-2.5 text-sm text-zinc-400">
-                  <span className="thinking-dots">
-                    <span>.</span><span>.</span><span>.</span>
-                  </span>
+                  {toolStatus ? (
+                    <span>{toolStatus}</span>
+                  ) : (
+                    <span className="thinking-dots">
+                      <span>.</span><span>.</span><span>.</span>
+                    </span>
+                  )}
                 </div>
               </div>
             )}

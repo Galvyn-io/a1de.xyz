@@ -22,6 +22,7 @@ export interface MessageRow {
   tool_calls: unknown | null;
   tool_result: unknown | null;
   model: string | null;
+  parent_message_id: string | null;
   created_at: string;
 }
 
@@ -68,6 +69,7 @@ export async function addMessage(params: {
   toolCalls?: unknown;
   toolResult?: unknown;
   model?: string;
+  parentMessageId?: string;
 }): Promise<MessageRow> {
   const db = getServiceClient();
   const { data, error } = await db
@@ -80,6 +82,7 @@ export async function addMessage(params: {
       tool_calls: params.toolCalls ?? null,
       tool_result: params.toolResult ?? null,
       model: params.model ?? null,
+      parent_message_id: params.parentMessageId ?? null,
     })
     .select()
     .single<MessageRow>();

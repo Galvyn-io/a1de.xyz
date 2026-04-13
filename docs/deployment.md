@@ -86,14 +86,34 @@ gcloud run services logs read a1de-backend \
   --project a1de-assistant --region us-west1 --limit 50
 ```
 
+## Vertex AI (Embeddings)
+
+Used for generating embeddings for the memory system.
+
+- **API:** `aiplatform.googleapis.com` (enabled on `a1de-assistant`)
+- **Model:** `gemini-embedding-001` (1536 dims)
+- **Region:** `us-west1`
+- **Auth:** Application Default Credentials — Cloud Run service account (`161515709709-compute@developer.gserviceaccount.com`) has `roles/aiplatform.user`
+- **No API key needed** — ADC handles auth automatically on Cloud Run
+
+### Setup (already done)
+
+```bash
+gcloud services enable aiplatform.googleapis.com --project a1de-assistant
+
+gcloud projects add-iam-policy-binding a1de-assistant \
+  --member="serviceAccount:161515709709-compute@developer.gserviceaccount.com" \
+  --role="roles/aiplatform.user"
+```
+
 ## Telemetry (Langfuse)
 
-All Claude API calls are automatically traced via Langfuse + OpenTelemetry.
+All Claude API calls are traced via Langfuse native SDK.
 
 - **Dashboard:** https://us.cloud.langfuse.com
 - **Project:** `a1de.xyz`
-- **What's traced:** Every Claude call with full prompt/response, token usage, latency, cost, user ID, conversation ID (session)
-- **Setup:** `backend/src/telemetry.ts` initializes OpenTelemetry with `LangfuseSpanProcessor` and `AnthropicInstrumentation` before the Anthropic SDK is imported
+- **What's traced:** Every Claude call with prompt/response, token usage, latency, cost, user ID, conversation ID, tool iterations
+- **Setup:** `backend/src/telemetry.ts` creates a Langfuse client; `chat/router.ts` records traces and generations per Claude API call
 
 ## Supabase config
 

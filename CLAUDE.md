@@ -20,14 +20,21 @@ A1DE (formerly "Jarvis") is a personal family AI assistant. Monorepo with Next.j
 - Connector management UI (add, view, disconnect)
 - Backend API: connector CRUD + Google OAuth token exchange/refresh
 - Chat system: streaming Claude Sonnet responses via SSE, conversation persistence
-- Chat UI: conversation sidebar, message bubbles, streaming display
-- Langfuse telemetry: automatic tracing of all Claude API calls with token usage, latency, cost
+- Chat UI: conversation sidebar, message bubbles, streaming display, tool status display
+- Memory system: knowledge graph (entities + memories + relations) with hybrid search (vector + full-text + RRF)
+- Tool-use loop: Claude can call `search_memory` and `save_fact` tools, with multi-turn execution
+- Always-inject memories: core preferences loaded into every system prompt
+- Embeddings: Vertex AI Gemini Embedding (gemini-embedding-001, 1536 dims) via Application Default Credentials
+- Langfuse telemetry: tracing of all Claude API calls with token usage, latency, cost, tool iterations
 - Backend deployed to Cloud Run (`a1de-backend` in `us-west1`)
-- Database: `user_profiles`, `connectors`, `connector_credentials`, `conversations`, `messages` tables with RLS
+- Database: `user_profiles`, `connectors`, `connector_credentials`, `conversations`, `messages`, `entities`, `memories`, `entity_relations`, `memory_entities`, `health_metrics`, `schedules` tables with RLS
 
 **What's NOT built yet:**
-- Memory system (embeddings, semantic retrieval, memory persistence)
-- Tool use loop (connecting Claude to Gmail/Calendar/Photos data via tools)
+- Background extraction (auto-extract memories from chat conversations)
+- Connector ingestion (Gmail/Calendar → memories)
+- Health metrics connector (Apple Health/Whoop → health_metrics table)
+- Proactive engine (daily checks, reminders, pattern detection)
+- User-defined schedules (cron jobs)
 - Messaging channels (Sendblue, Kapso, Twilio)
 - iOS app
 
@@ -49,10 +56,15 @@ backend/
     │   ├── providers.ts      # Provider registry (scopes, auth type)
     │   ├── db.ts             # Supabase queries (service_role)
     │   └── google-oauth.ts   # OAuth URL, code exchange, token refresh
-    └── chat/
-        ├── router.ts         # POST /chat, GET /stream (SSE), conversations
-        ├── db.ts             # Conversation + message persistence
-        └── claude.ts         # Claude API wrapper, system prompt
+    ├── chat/
+    │   ├── router.ts         # POST /chat, GET /stream (SSE + tool loop), conversations
+    │   ├── db.ts             # Conversation + message persistence
+    │   └── claude.ts         # Claude API wrapper, system prompt, tool-use
+    └── memory/
+        ├── embeddings.ts     # Vertex AI Gemini Embedding wrapper
+        ├── db.ts             # Memory + entity CRUD, hybrid search
+        ├── search.ts         # Public hybrid search API
+        └── tools.ts          # search_memory + save_fact tool definitions + executor
 
 web/app/
 ├── src/
@@ -77,13 +89,15 @@ packages/supabase/             # Shared types (ConnectorType, ConnectorProvider,
 infra/sql/
 ├── 001_user_profiles.sql     # user_profiles table, RLS, admin trigger
 ├── 002_connectors.sql        # connectors + connector_credentials tables, RLS
-└── 003_conversations.sql     # conversations + messages tables, RLS
+├── 003_conversations.sql     # conversations + messages tables, RLS
+└── 004_memory.sql            # entities, memories, relations, health, schedules, hybrid_search
 
 docs/
 ├── auth.md                   # Authentication architecture
-├── chat.md                   # Chat system architecture
+├── chat.md                   # Chat system + tool-use loop
 ├── connectors.md             # Connector system architecture
-└── deployment.md             # Vercel + Cloud Run deployment
+├── deployment.md             # Vercel + Cloud Run + Vertex AI deployment
+└── memory.md                 # Memory system (knowledge graph, hybrid search, tools)
 ```
 
 ## Adding a new connector provider
@@ -119,8 +133,9 @@ The connectors list page (`web/app/src/app/connectors/page.tsx`) renders section
 - `docs/chat.md` — Chat system architecture
 - `docs/connectors.md` — Connector system architecture
 - `docs/deployment.md` — Deployment guide (Vercel + Cloud Run)
-- `backend/src/telemetry.ts` — Langfuse + OpenTelemetry instrumentation
-- `backend/src/chat/` — Chat API (streaming, Claude integration)
+- `backend/src/telemetry.ts` — Langfuse tracing
+- `backend/src/chat/` — Chat API (streaming, tool-use loop, Claude integration)
+- `backend/src/memory/` — Memory system (embeddings, hybrid search, tools)
 - `backend/src/connectors/` — Connector OAuth + CRUD
 - `web/app/src/lib/connectors.ts` — Single source of truth for provider display metadata
 - `infra/sql/` — Database migrations
