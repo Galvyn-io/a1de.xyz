@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { config } from '../config.js';
 import { createConversation, getConversation, listConversations, addMessage, getMessages, touchConversation } from './db.js';
 import { buildSystemPrompt, buildMessages, createStream } from './claude.js';
+import { propagateAttributes } from '../telemetry.js';
 
 type AuthEnv = { Variables: { user: User } };
 
@@ -75,40 +76,49 @@ chat.get('/stream', requireAuth, async (c) => {
   c.header('X-Accel-Buffering', 'no');
 
   return streamSSE(c, async (stream) => {
-    let fullContent = '';
-    let model = '';
-
-    try {
-      const response = createStream({ messages, systemPrompt });
-
-      response.on('text', (text) => {
-        fullContent += text;
-        stream.writeSSE({ data: JSON.stringify({ delta: text }) });
-      });
-
-      const finalMessage = await response.finalMessage();
-      model = finalMessage.model;
-
-      // Save the assistant message
-      const saved = await addMessage({
-        conversationId,
+    await propagateAttributes(
+      {
         userId: user.id,
-        role: 'assistant',
-        content: fullContent,
-        model,
-      });
+        sessionId: conversationId,
+        tags: ['chat'],
+      },
+      async () => {
+        let fullContent = '';
+        let model = '';
 
-      await touchConversation(conversationId);
+        try {
+          const response = createStream({ messages, systemPrompt });
 
-      await stream.writeSSE({
-        data: JSON.stringify({ done: true, message_id: saved.id }),
-      });
-    } catch (err) {
-      console.error('Stream error:', err);
-      await stream.writeSSE({
-        data: JSON.stringify({ error: 'Failed to generate response' }),
-      });
-    }
+          response.on('text', (text) => {
+            fullContent += text;
+            stream.writeSSE({ data: JSON.stringify({ delta: text }) });
+          });
+
+          const finalMessage = await response.finalMessage();
+          model = finalMessage.model;
+
+          // Save the assistant message
+          const saved = await addMessage({
+            conversationId,
+            userId: user.id,
+            role: 'assistant',
+            content: fullContent,
+            model,
+          });
+
+          await touchConversation(conversationId);
+
+          await stream.writeSSE({
+            data: JSON.stringify({ done: true, message_id: saved.id }),
+          });
+        } catch (err) {
+          console.error('Stream error:', err);
+          await stream.writeSSE({
+            data: JSON.stringify({ error: 'Failed to generate response' }),
+          });
+        }
+      },
+    );
   });
 });
 

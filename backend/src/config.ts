@@ -11,6 +11,9 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().url(),
   OAUTH_STATE_SECRET: z.string().min(32),
   ANTHROPIC_API_KEY: z.string().min(1),
+  LANGFUSE_PUBLIC_KEY: z.string().min(1),
+  LANGFUSE_SECRET_KEY: z.string().min(1),
+  LANGFUSE_BASE_URL: z.string().url(),
 });
 
 export const config = envSchema.parse(process.env);
