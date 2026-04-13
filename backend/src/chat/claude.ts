@@ -36,7 +36,7 @@ export function createStream(params: {
   systemPrompt: string;
 }) {
   return client.messages.stream({
-    model: 'claude-sonnet-4-5-20250514',
+    model: 'claude-sonnet-4-5-20250929',
     max_tokens: 8096,
     system: params.systemPrompt,
     messages: params.messages,
