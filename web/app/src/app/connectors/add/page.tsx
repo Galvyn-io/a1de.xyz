@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePlaidLink } from 'react-plaid-link';
+import { Button, Input } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/client';
 import { CONNECTOR_OPTIONS, PROVIDER_META } from '@/lib/connectors';
 
@@ -63,14 +64,10 @@ function PlaidLinkButton({ label, onDone }: { label: string; onDone: () => void 
 
   return (
     <>
-      <button
-        onClick={startPlaid}
-        disabled={loading}
-        className="flex-1 rounded-xl bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200 disabled:opacity-50"
-      >
-        {loading ? 'Connecting...' : 'Connect Bank'}
-      </button>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      <Button onClick={startPlaid} loading={loading} variant="accent" size="md" className="flex-1">
+        Connect Bank
+      </Button>
+      {error && <p className="text-sm text-error">{error}</p>}
     </>
   );
 }
@@ -137,23 +134,23 @@ export default function AddConnectorPage() {
     <div className="mx-auto max-w-lg px-6 py-12">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Add Connector</h1>
-        <p className="mt-1 text-zinc-400">Connect a data source to your assistant</p>
+        <p className="mt-1 text-fg-muted">Connect a data source to your assistant</p>
       </div>
 
       {step === 'pick' && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {CONNECTOR_OPTIONS.map((option) => (
             <button
               key={option.provider}
               onClick={() => handleSelect(option)}
-              className="flex w-full items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-4 text-left transition-colors hover:border-zinc-600"
+              className="flex w-full items-center gap-4 rounded-lg border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-border-strong"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-800 text-lg">
+              <div className="flex h-10 w-10 items-center justify-center rounded-md bg-surface-2 text-base">
                 {PROVIDER_META[option.provider].icon}
               </div>
               <div>
                 <p className="text-sm font-medium">{PROVIDER_META[option.provider].label}</p>
-                <p className="text-xs text-zinc-500">{option.description}</p>
+                <p className="text-xs text-fg-subtle">{option.description}</p>
               </div>
             </button>
           ))}
@@ -162,36 +159,29 @@ export default function AddConnectorPage() {
 
       {step === 'label' && selected && (
         <form onSubmit={selected.authFlow === 'google' ? handleGoogleConnect : (e) => e.preventDefault()} className="space-y-6">
-          <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3">
             <span className="text-lg">{PROVIDER_META[selected.provider].icon}</span>
             <span className="text-sm font-medium">{PROVIDER_META[selected.provider].label}</span>
           </div>
 
-          <div>
-            <label htmlFor="label" className="block text-sm font-medium text-zinc-300">
-              Give it a name (optional)
-            </label>
-            <input
-              id="label"
-              type="text"
-              value={connectorLabel}
-              onChange={(e) => setConnectorLabel(e.target.value)}
-              placeholder={selected.authFlow === 'plaid' ? 'e.g. Chase, Amex, Savings' : 'e.g. Personal, Work, Side Hustle'}
-              className="mt-2 w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm placeholder-zinc-600 outline-none transition-colors focus:border-zinc-600"
-              autoFocus
-            />
-          </div>
-
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          <Input
+            label="Give it a name (optional)"
+            value={connectorLabel}
+            onChange={(e) => setConnectorLabel(e.target.value)}
+            placeholder={selected.authFlow === 'plaid' ? 'e.g. Chase, Amex, Savings' : 'e.g. Personal, Work, Side Hustle'}
+            error={error || undefined}
+            autoFocus
+          />
 
           <div className="flex gap-3">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="md"
               onClick={() => { setStep('pick'); setSelected(null); setConnectorLabel(''); setError(''); }}
-              className="rounded-xl border border-zinc-800 px-4 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
             >
               Back
-            </button>
+            </Button>
 
             {selected.authFlow === 'plaid' ? (
               <PlaidLinkButton
@@ -199,21 +189,17 @@ export default function AddConnectorPage() {
                 onDone={() => router.push('/connectors?success=true')}
               />
             ) : (
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 rounded-xl bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200 disabled:opacity-50"
-              >
-                {loading ? 'Connecting...' : 'Connect with Google'}
-              </button>
+              <Button type="submit" loading={loading} variant="accent" size="md" className="flex-1">
+                Connect with Google
+              </Button>
             )}
           </div>
         </form>
       )}
 
       <div className="mt-8">
-        <Link href="/connectors" className="text-sm text-zinc-400 hover:text-zinc-200">
-          Back to connectors
+        <Link href="/connectors" className="text-sm text-fg-muted hover:text-fg">
+          ← Back to connectors
         </Link>
       </div>
     </div>

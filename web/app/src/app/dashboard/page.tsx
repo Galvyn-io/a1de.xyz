@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Button, Card } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/server';
 import type { UserProfile } from '@/lib/supabase/types';
 
@@ -11,43 +12,37 @@ export default async function DashboardPage() {
     .eq('id', user!.id)
     .single<UserProfile>();
 
+  const assistantName = profile?.assistant_name ?? 'A1DE';
+
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-md space-y-6 px-4 text-center">
-        <h1 className="text-3xl font-bold tracking-tight">
-          Meet {profile?.assistant_name}
-        </h1>
-        <p className="text-zinc-400">
-          Your personal AI assistant is ready. More features coming soon.
-        </p>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-          <p className="text-sm text-zinc-500">Signed in as</p>
-          <p className="mt-1 font-medium">{user?.email}</p>
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-md space-y-6 text-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Meet {assistantName}
+          </h1>
+          <p className="mt-2 text-fg-muted">Your personal AI assistant.</p>
         </div>
-        <div className="flex flex-col items-center gap-3">
-          <Link
-            href="/chat"
-            className="inline-block rounded-xl bg-white px-6 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
-          >
-            Chat with {profile?.assistant_name}
+
+        <Card border="subtle" padding="md" className="text-left">
+          <p className="text-xs uppercase tracking-wider text-fg-subtle">Signed in as</p>
+          <p className="mt-1 font-medium">{user?.email}</p>
+        </Card>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Link href="/chat" className="col-span-2">
+            <Button variant="accent" size="lg" className="w-full">
+              Chat with {assistantName}
+            </Button>
           </Link>
-          <Link
-            href="/memories"
-            className="inline-block rounded-xl border border-zinc-800 px-6 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
-          >
-            Memory
+          <Link href="/memories">
+            <Button variant="default" size="md" className="w-full">Memory</Button>
           </Link>
-          <Link
-            href="/tasks"
-            className="inline-block rounded-xl border border-zinc-800 px-6 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
-          >
-            Tasks
+          <Link href="/tasks">
+            <Button variant="default" size="md" className="w-full">Tasks</Button>
           </Link>
-          <Link
-            href="/connectors"
-            className="inline-block rounded-xl border border-zinc-800 px-6 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
-          >
-            Manage Connectors
+          <Link href="/connectors" className="col-span-2">
+            <Button variant="ghost" size="md" className="w-full">Manage Connectors</Button>
           </Link>
         </div>
       </div>

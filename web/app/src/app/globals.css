@@ -1,5 +1,48 @@
 @import 'tailwindcss';
+@import '@galvyn-io/design/css';
 
+/*
+ * A1DE accent color — teal feels right for an assistant: calm, technical,
+ * not as corporate as blue, not as playful as purple.
+ */
+:root {
+  --galvyn-accent-hue: 180;
+}
+
+/*
+ * Map Tailwind v4 @theme tokens to galvyn variables so we can use
+ * Tailwind utilities like bg-bg, text-fg, border-border throughout the app
+ * without having to rewrite every page in raw CSS.
+ */
+@theme {
+  --color-bg: var(--galvyn-bg-000);
+  --color-bg-1: var(--galvyn-bg-100);
+  --color-bg-2: var(--galvyn-bg-200);
+  --color-surface: var(--galvyn-surface-100);
+  --color-surface-2: var(--galvyn-surface-200);
+  --color-surface-hover: var(--galvyn-surface-hover);
+  --color-fg: var(--galvyn-text-100);
+  --color-fg-muted: var(--galvyn-text-200);
+  --color-fg-subtle: var(--galvyn-text-300);
+  --color-border: var(--galvyn-border-100);
+  --color-border-strong: var(--galvyn-border-200);
+  --color-accent: var(--galvyn-accent-400);
+  --color-accent-text: var(--galvyn-accent-text);
+  --color-success: var(--galvyn-success);
+  --color-warning: var(--galvyn-warning);
+  --color-error: var(--galvyn-error);
+
+  --font-sans: var(--galvyn-font-sans);
+  --font-mono: var(--galvyn-font-mono);
+
+  --radius-sm: var(--galvyn-radius-sm);
+  --radius-md: var(--galvyn-radius-md);
+  --radius-lg: var(--galvyn-radius-lg);
+  --radius-xl: var(--galvyn-radius-xl);
+  --radius-2xl: var(--galvyn-radius-2xl);
+}
+
+/* Custom animations kept from before */
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
@@ -14,7 +57,7 @@
   content: '\25AE';
   animation: blink 1s step-end infinite;
   margin-left: 1px;
-  color: rgb(161 161 170); /* zinc-400 */
+  color: var(--galvyn-text-300);
 }
 
 .thinking-dots span {
@@ -23,3 +66,10 @@
 }
 .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
 .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Set page baseline so anything not yet refactored still looks right */
+html, body {
+  background: var(--galvyn-bg-000);
+  color: var(--galvyn-text-100);
+  font-family: var(--galvyn-font-sans);
+}

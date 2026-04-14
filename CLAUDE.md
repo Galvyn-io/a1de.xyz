@@ -9,7 +9,7 @@ A1DE (formerly "Jarvis") is a personal family AI assistant. Monorepo with Next.j
 - **Database:** PostgreSQL + pgvector on Supabase (project ref: `erwowjlaakatqsvuppzj`, region: us-west-1)
 - **Intelligence:** Claude Sonnet 4.5 API (streaming chat implemented, tool use coming next)
 - **Telemetry:** Langfuse via OpenTelemetry (traces all Claude calls with user/session context)
-- **Design system:** Premiere v3 — Outfit font, zinc-black dark-first, 12px radii, 1.5px strokes
+- **Design system:** [@galvyn-io/design](https://www.npmjs.com/package/@galvyn-io/design) — dark-first monotone with surgical accent. Accent hue set to `180` (teal). Components: Button, Card, Badge, Input, FilterToggle, Kbd, GradientBorder.
 
 ## Current state (Phase 0 complete, Phase 1 in progress)
 
@@ -148,6 +148,8 @@ The connectors list page (`web/app/src/app/connectors/page.tsx`) renders section
 - Web app: path aliases with `@/` prefix
 - All secrets via environment variables, never hardcoded
 - Provider metadata (labels, icons) lives in `web/app/src/lib/connectors.ts` — don't duplicate in components
+- **UI**: use `@galvyn-io/design` components and semantic Tailwind tokens (`bg-bg`, `text-fg`, `border-border`, `text-fg-muted`, etc.) instead of raw zinc-* colors. Tokens are defined in `globals.css` via `@theme` mapping galvyn CSS variables to Tailwind utilities.
+- **Cmd+K command palette** is mounted globally in `app/layout.tsx` via `web/app/src/components/command-palette.tsx`
 
 ## Key files
 

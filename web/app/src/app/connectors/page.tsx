@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Button, Card } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/server';
 import type { Connector } from '@/lib/supabase/types';
 import { ConnectorCard } from './connector-card';
@@ -31,41 +32,38 @@ export default async function ConnectorsPage({
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Connectors</h1>
-          <p className="mt-1 text-zinc-400">Connect your data sources</p>
+          <p className="mt-1 text-fg-muted">Connect your data sources</p>
         </div>
-        <Link
-          href="/connectors/add"
-          className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
-        >
-          Add connector
+        <Link href="/connectors/add">
+          <Button variant="accent" size="md">+ Add connector</Button>
         </Link>
       </div>
 
       {params.success && (
-        <div className="mb-6 rounded-xl border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-400">
-          Connector added successfully.
-        </div>
+        <Card border="subtle" padding="md" className="mb-6 border-l-2 border-l-success bg-success/10">
+          <p className="text-sm text-success">Connector added successfully.</p>
+        </Card>
       )}
 
       {params.error && (
-        <div className="mb-6 rounded-xl border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-400">
-          Failed to connect: {params.error}
-        </div>
+        <Card border="subtle" padding="md" className="mb-6 border-l-2 border-l-error bg-error/10">
+          <p className="text-sm text-error">Failed to connect: {params.error}</p>
+        </Card>
       )}
 
       {(!connectors || connectors.length === 0) && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-12 text-center">
-          <p className="text-zinc-400">No connectors yet.</p>
-          <Link href="/connectors/add" className="mt-2 inline-block text-sm text-white underline">
+        <Card border="subtle" padding="lg" className="text-center">
+          <p className="text-fg-muted">No connectors yet.</p>
+          <Link href="/connectors/add" className="mt-2 inline-block text-sm text-accent-text hover:underline">
             Add your first connector
           </Link>
-        </div>
+        </Card>
       )}
 
       {sections.map(([type, items]) => (
         <section key={type} className="mb-8">
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-zinc-500">{type}</h2>
-          <div className="space-y-3">
+          <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-subtle">{type}</h2>
+          <div className="space-y-2">
             {items.map((c) => (
               <ConnectorCard key={c.id} connector={c} />
             ))}
@@ -74,8 +72,8 @@ export default async function ConnectorsPage({
       ))}
 
       <div className="mt-8">
-        <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-zinc-200">
-          Back to dashboard
+        <Link href="/dashboard" className="text-sm text-fg-muted hover:text-fg">
+          ← Back to dashboard
         </Link>
       </div>
     </div>

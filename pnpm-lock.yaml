@@ -65,6 +65,9 @@ importers:
       '@a1de/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
+      '@galvyn-io/design':
+        specifier: ^0.2.0
+        version: 0.2.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(tailwindcss@4.2.2)
       '@supabase/ssr':
         specifier: ^0.6.1
         version: 0.6.1(@supabase/supabase-js@2.103.0)
@@ -280,6 +283,18 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@galvyn-io/design@0.2.0':
+    resolution: {integrity: sha512-M6vK/usePBOGp/Egk9toiVq98FRt+/+RPfU/0z4YJLOEM1krutdU0UPqh8TY/HIZGQIvJtPia5yc9YMu+Sxlcg==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
+      tailwindcss: '>=3.4.0'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
 
   '@hono/node-server@1.19.13':
     resolution: {integrity: sha512-TsQLe4i2gvoTtrHje625ngThGBySOgSK3Xo2XRYOdqGN1teR8+I7vchQC46uLJi8OF62YTYA3AhSpumtkhsaKQ==}
@@ -1262,6 +1277,13 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.7':
     optional: true
+
+  '@galvyn-io/design@0.2.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(tailwindcss@4.2.2)':
+    dependencies:
+      tailwindcss: 4.2.2
+    optionalDependencies:
+      react: 19.2.5
+      react-dom: 19.2.5(react@19.2.5)
 
   '@hono/node-server@1.19.13(hono@4.12.12)':
     dependencies:

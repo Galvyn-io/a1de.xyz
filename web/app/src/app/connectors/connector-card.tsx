@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Badge } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/client';
 import type { Connector } from '@/lib/supabase/types';
 import { PROVIDER_META } from '@/lib/connectors';
@@ -27,33 +28,28 @@ export function ConnectorCard({ connector }: { connector: Connector }) {
     router.refresh();
   };
 
+  const statusVariant: 'success' | 'error' | 'default' =
+    connector.status === 'active' ? 'success' :
+    connector.status === 'error' ? 'error' :
+    'default';
+
   return (
-    <div className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
-      <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-800 text-xs font-bold">
+    <div className="group flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 transition-colors hover:border-border-strong">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-surface-2 text-base">
           {PROVIDER_META[connector.provider]?.icon ?? '🔗'}
         </div>
-        <div>
-          <p className="text-sm font-medium">{connector.label}</p>
-          <p className="text-xs text-zinc-500">{PROVIDER_META[connector.provider]?.label ?? connector.provider}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{connector.label}</p>
+          <p className="text-xs text-fg-subtle">{PROVIDER_META[connector.provider]?.label ?? connector.provider}</p>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <span
-          className={`inline-block rounded-full px-2 py-0.5 text-xs ${
-            connector.status === 'active'
-              ? 'bg-emerald-900/50 text-emerald-400'
-              : connector.status === 'error'
-                ? 'bg-red-900/50 text-red-400'
-                : 'bg-zinc-800 text-zinc-500'
-          }`}
-        >
-          {connector.status}
-        </span>
+      <div className="flex items-center gap-3 shrink-0">
+        <Badge variant={statusVariant} dot>{connector.status}</Badge>
         <button
           onClick={handleDisconnect}
           disabled={deleting}
-          className="text-xs text-zinc-500 hover:text-red-400 disabled:opacity-50"
+          className="text-xs text-fg-subtle opacity-0 transition-opacity hover:text-error group-hover:opacity-100 disabled:opacity-50"
         >
           {deleting ? '...' : 'Disconnect'}
         </button>

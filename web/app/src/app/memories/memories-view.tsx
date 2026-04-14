@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Badge, FilterToggle } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/client';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
@@ -128,82 +129,63 @@ export function MemoriesView() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-12">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Memory</h1>
-          <p className="mt-1 text-zinc-400">
+          <p className="mt-1 text-fg-muted">
             Everything your assistant knows about you
           </p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveTab('memories')}
-            className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-              activeTab === 'memories'
-                ? 'bg-zinc-800 text-white'
-                : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            Memories ({memories.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('entities')}
-            className={`rounded-lg px-3 py-1.5 text-sm transition-colors ${
-              activeTab === 'entities'
-                ? 'bg-zinc-800 text-white'
-                : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            Entities ({entities.length})
-          </button>
-        </div>
+        <FilterToggle
+          value={activeTab}
+          onChange={(v) => setActiveTab(v as typeof activeTab)}
+          options={[
+            { value: 'memories', label: 'Memories', count: memories.length },
+            { value: 'entities', label: 'Entities', count: entities.length },
+          ]}
+        />
       </div>
 
       {activeTab === 'memories' && (
         <>
           {memories.length === 0 && (
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-12 text-center">
-              <p className="text-zinc-400">No memories yet.</p>
-              <p className="mt-2 text-sm text-zinc-500">
+            <div className="rounded-xl border border-border bg-surface p-12 text-center">
+              <p className="text-fg-muted">No memories yet.</p>
+              <p className="mt-2 text-sm text-fg-subtle">
                 Chat with your assistant and it will start remembering things about you.
               </p>
-              <Link href="/chat" className="mt-4 inline-block text-sm text-white underline">
-                Start a conversation
+              <Link href="/chat" className="mt-4 inline-block text-sm text-accent-text hover:underline">
+                Start a conversation →
               </Link>
             </div>
           )}
 
           {sortedCategories.map((category) => (
             <section key={category} className="mb-8">
-              <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-zinc-500">
+              <h2 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-subtle">
                 {CATEGORY_LABELS[category] ?? category}
               </h2>
               <div className="space-y-2">
                 {grouped[category]!.map((m) => (
                   <div
                     key={m.id}
-                    className="group flex items-start justify-between rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3"
+                    className="group flex items-start justify-between rounded-lg border border-border bg-surface px-4 py-3 transition-colors hover:border-border-strong"
                   >
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm">{m.content}</p>
-                      <div className="mt-1 flex items-center gap-3">
-                        {m.always_inject && (
-                          <span className="rounded-full bg-emerald-900/50 px-2 py-0.5 text-xs text-emerald-400">
-                            always active
-                          </span>
-                        )}
-                        <span className="text-xs text-zinc-600">
-                          {m.source ?? 'chat'} &middot;{' '}
-                          {new Date(m.created_at).toLocaleDateString()}
+                      <div className="mt-1.5 flex items-center gap-2">
+                        {m.always_inject && <Badge variant="success" size="sm">always active</Badge>}
+                        <span className="text-xs text-fg-subtle">
+                          {m.source ?? 'chat'} · {new Date(m.created_at).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
                     <button
                       onClick={() => deleteMemory(m.id)}
-                      className="ml-3 shrink-0 text-xs text-zinc-600 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
+                      className="ml-3 shrink-0 text-xs text-fg-subtle opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
                       title="Delete memory"
                     >
-                      &#10005;
+                      ✕
                     </button>
                   </div>
                 ))}
@@ -219,23 +201,23 @@ export function MemoriesView() {
           <div className="w-64 shrink-0">
             {Object.entries(entityGroups).map(([type, ents]) => (
               <div key={type} className="mb-6">
-                <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+                <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">
                   {type}
                 </h3>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {ents.map((e) => (
                     <button
                       key={e.id}
                       onClick={() => selectEntity(e.id)}
-                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                      className={`w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors ${
                         selectedEntity === e.id
-                          ? 'bg-zinc-800 text-white'
-                          : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
+                          ? 'bg-surface-2 text-fg'
+                          : 'text-fg-muted hover:bg-surface hover:text-fg'
                       }`}
                     >
                       {e.name}
                       {e.subtype && (
-                        <span className="ml-2 text-xs text-zinc-600">{e.subtype}</span>
+                        <span className="ml-2 text-xs text-fg-subtle">{e.subtype}</span>
                       )}
                     </button>
                   ))}
@@ -244,7 +226,7 @@ export function MemoriesView() {
             ))}
 
             {entities.length === 0 && (
-              <p className="text-sm text-zinc-500">No entities yet.</p>
+              <p className="text-sm text-fg-subtle">No entities yet.</p>
             )}
           </div>
 
@@ -252,35 +234,34 @@ export function MemoriesView() {
           <div className="flex-1">
             {selectedEntity ? (
               <div className="space-y-2">
-                <h3 className="mb-3 text-sm font-medium text-zinc-400">
+                <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-subtle">
                   Related memories
                 </h3>
                 {entityMemories.length === 0 && (
-                  <p className="text-sm text-zinc-600">No linked memories.</p>
+                  <p className="text-sm text-fg-subtle">No linked memories.</p>
                 )}
                 {entityMemories.map((m) => (
                   <div
                     key={m.id}
-                    className="group flex items-start justify-between rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3"
+                    className="group flex items-start justify-between rounded-lg border border-border bg-surface px-4 py-3 transition-colors hover:border-border-strong"
                   >
                     <div>
                       <p className="text-sm">{m.content}</p>
-                      <span className="text-xs text-zinc-600">
-                        {m.source ?? 'chat'} &middot;{' '}
-                        {new Date(m.created_at).toLocaleDateString()}
+                      <span className="text-xs text-fg-subtle">
+                        {m.source ?? 'chat'} · {new Date(m.created_at).toLocaleDateString()}
                       </span>
                     </div>
                     <button
                       onClick={() => deleteMemory(m.id)}
-                      className="ml-3 shrink-0 text-xs text-zinc-600 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100"
+                      className="ml-3 shrink-0 text-xs text-fg-subtle opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
                     >
-                      &#10005;
+                      ✕
                     </button>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="flex h-40 items-center justify-center text-sm text-zinc-600">
+              <div className="flex h-40 items-center justify-center text-sm text-fg-subtle">
                 Select an entity to see related memories
               </div>
             )}
@@ -289,12 +270,8 @@ export function MemoriesView() {
       )}
 
       <div className="mt-8 flex gap-4">
-        <Link href="/chat" className="text-sm text-zinc-400 hover:text-zinc-200">
-          Back to chat
-        </Link>
-        <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-zinc-200">
-          Dashboard
-        </Link>
+        <Link href="/chat" className="text-sm text-fg-muted hover:text-fg">← Back to chat</Link>
+        <Link href="/dashboard" className="text-sm text-fg-muted hover:text-fg">Dashboard</Link>
       </div>
     </div>
   );

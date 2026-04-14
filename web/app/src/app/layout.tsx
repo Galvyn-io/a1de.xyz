@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { Outfit } from 'next/font/google';
 import './globals.css';
+import { CommandPalette } from '@/components/command-palette';
 
-const outfit = Outfit({ subsets: ['latin'] });
+const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' });
 
 export const metadata: Metadata = {
   title: 'A1DE',
@@ -12,8 +13,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${outfit.className} bg-zinc-950 text-zinc-100 antialiased`}>
+      <body className={`${outfit.className} bg-bg text-fg antialiased`}>
         {children}
+        <CommandPalette />
       </body>
     </html>
   );

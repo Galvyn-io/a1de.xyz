@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@a1de/supabase": "workspace:*",
+    "@galvyn-io/design": "^0.2.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.4",
     "next": "^15.3.1",
