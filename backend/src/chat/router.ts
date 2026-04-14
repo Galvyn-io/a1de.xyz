@@ -7,9 +7,19 @@ import { config } from '../config.js';
 import { createConversation, getConversation, listConversations, addMessage, getMessages, touchConversation, updateConversation, deleteConversation, setConversationTitle } from './db.js';
 import { buildSystemPrompt, buildMessages, callClaude, streamClaude } from './claude.js';
 import { langfuse } from '../telemetry.js';
-import { MEMORY_TOOLS, executeTool } from '../memory/tools.js';
+import { MEMORY_TOOLS, executeTool as executeMemoryTool } from '../memory/tools.js';
+import { GOLF_TOOLS, executeGolfTool } from '../golf/tools.js';
 import { getAlwaysInjectMemories } from '../memory/db.js';
 import { extractMemoriesFromConversation } from '../memory/extractor.js';
+
+const ALL_TOOLS = [...MEMORY_TOOLS, ...GOLF_TOOLS];
+
+async function executeTool(name: string, input: unknown, userId: string): Promise<string> {
+  if (name === 'search_tee_times' || name === 'book_tee_time') {
+    return executeGolfTool(name, input);
+  }
+  return executeMemoryTool(name, input, userId);
+}
 
 type AuthEnv = { Variables: { user: User } };
 
@@ -113,7 +123,7 @@ chat.get('/stream', requireAuth, async (c) => {
         const response = await callClaude({
           messages: currentMessages,
           systemPrompt,
-          tools: MEMORY_TOOLS,
+          tools: ALL_TOOLS,
         });
 
         finalModel = response.model;

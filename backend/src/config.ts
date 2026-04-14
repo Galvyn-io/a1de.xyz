@@ -17,6 +17,9 @@ const envSchema = z.object({
   PLAID_CLIENT_ID: z.string().min(1),
   PLAID_SECRET: z.string().min(1),
   PLAID_ENV: z.enum(['sandbox', 'production']).default('production'),
+  SKYVERN_API_KEY: z.string().min(1),
+  STEEL_API_KEY: z.string().min(1),
+  GOOGLE_PLACES_API_KEY: z.string().min(1),
 });
 
 export const config = envSchema.parse(process.env);
