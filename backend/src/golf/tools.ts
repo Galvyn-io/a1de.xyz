@@ -1,5 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import { searchGolfCourses, geocodeZip } from './places.js';
+import { searchCourses, filterByDistance } from './golfcourseapi.js';
+import { geocodeZip } from './places.js';
 import { searchTeeTimesOnSite, createBookingTask, waitForTask } from './skyvern.js';
 
 // Default location: 98011 (Bothell, WA)
@@ -8,44 +9,41 @@ const DEFAULT_LNG = -122.2053;
 
 export const GOLF_TOOLS: Anthropic.Tool[] = [
   {
-    name: 'find_golf_courses',
+    name: 'search_golf_courses',
     description:
-      'Find golf courses near a location using Google Places. Returns course names, addresses, websites, ratings, and distances. ' +
-      'Use this FIRST to discover what courses exist in an area before searching tee times.',
+      'Search golf courses by name, club, or city using GolfCourseAPI. Returns course info (name, address, location, par, yardage). ' +
+      'Use this to find a specific course (e.g. "Bellevue Golf Course") or all courses in a city (e.g. "Bellevue, WA"). ' +
+      'Can filter results by distance from a zip code or coordinates.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        zip_code: {
+        query: {
           type: 'string',
-          description: 'US zip code (e.g. "98011"). Used to find the search center.',
+          description: 'Search term — course name, club name, or city (e.g. "Bellevue", "Pinehurst", "Kirkland WA")',
         },
-        latitude: {
-          type: 'number',
-          description: 'Latitude of search center (alternative to zip_code)',
-        },
-        longitude: {
-          type: 'number',
-          description: 'Longitude of search center (alternative to zip_code)',
+        near_zip: {
+          type: 'string',
+          description: 'Optional: US zip code to filter/sort results by distance',
         },
         radius_miles: {
           type: 'number',
-          description: 'Search radius in miles (default 20, max 31)',
+          description: 'Optional: max distance in miles from near_zip (default 30)',
         },
       },
-      required: [],
+      required: ['query'],
     },
   },
   {
     name: 'check_tee_times_at_course',
     description:
       'Check tee time availability at a specific golf course by navigating their website. Uses browser automation (takes 30-60 seconds). ' +
-      'Call this AFTER find_golf_courses to check one or more courses for availability.',
+      'Requires the course website URL. If you only have the course name, ask the user for the website or search the web first.',
     input_schema: {
       type: 'object' as const,
       properties: {
         course_website: {
           type: 'string',
-          description: 'The golf course website URL',
+          description: 'The golf course booking website URL',
         },
         course_name: {
           type: 'string',
@@ -72,7 +70,7 @@ export const GOLF_TOOLS: Anthropic.Tool[] = [
       properties: {
         course_website: {
           type: 'string',
-          description: 'The golf course website URL',
+          description: 'The golf course booking website URL',
         },
         course_name: {
           type: 'string',
@@ -96,10 +94,9 @@ export const GOLF_TOOLS: Anthropic.Tool[] = [
   },
 ];
 
-interface FindCoursesInput {
-  zip_code?: string;
-  latitude?: number;
-  longitude?: number;
+interface SearchCoursesInput {
+  query: string;
+  near_zip?: string;
   radius_miles?: number;
 }
 
@@ -119,47 +116,48 @@ interface BookTeeTimeInput {
 }
 
 export async function executeGolfTool(name: string, input: unknown): Promise<string> {
+  console.log(`[golf] executing ${name} with input:`, JSON.stringify(input));
   try {
     switch (name) {
-      case 'find_golf_courses': {
-        const params = input as FindCoursesInput;
+      case 'search_golf_courses': {
+        const params = input as SearchCoursesInput;
 
-        let lat = params.latitude;
-        let lng = params.longitude;
+        const results = await searchCourses(params.query);
 
-        if (params.zip_code && (!lat || !lng)) {
-          const geo = await geocodeZip(params.zip_code);
-          if (!geo) return `Could not find location for zip code: ${params.zip_code}`;
-          lat = geo.lat;
-          lng = geo.lng;
+        if (results.length === 0) {
+          return `No golf courses found matching "${params.query}".`;
         }
 
-        if (!lat || !lng) {
-          lat = DEFAULT_LAT;
-          lng = DEFAULT_LNG;
+        // Optionally filter by distance from a zip
+        let filtered: Array<(typeof results)[0] & { distanceMiles?: number }> = results;
+        if (params.near_zip) {
+          const center = await geocodeZip(params.near_zip);
+          if (center) {
+            filtered = filterByDistance(results, center.lat, center.lng, params.radius_miles ?? 30);
+          }
         }
 
-        const courses = await searchGolfCourses({
-          latitude: lat,
-          longitude: lng,
-          radiusMiles: params.radius_miles ?? 20,
-        });
-
-        if (courses.length === 0) {
-          return `No golf courses found within ${params.radius_miles ?? 20} miles.`;
+        if (filtered.length === 0) {
+          return `Found ${results.length} courses matching "${params.query}" but none within ${params.radius_miles ?? 30} miles of ${params.near_zip}.`;
         }
 
-        const lines: string[] = [`Found ${courses.length} golf course${courses.length === 1 ? '' : 's'}:\n`];
+        const lines: string[] = [
+          `Found ${filtered.length} course${filtered.length === 1 ? '' : 's'}:\n`,
+        ];
 
-        for (const c of courses) {
-          const rating = c.rating ? ` ⭐ ${c.rating.toFixed(1)} (${c.userRatingCount ?? 0})` : '';
-          const distance = c.distanceMiles ? ` — ${c.distanceMiles.toFixed(1)} mi` : '';
-          lines.push(`**${c.name}**${distance}${rating}`);
+        for (const c of filtered.slice(0, 15)) {
+          const distance = c.distanceMiles !== undefined ? ` — ${c.distanceMiles.toFixed(1)} mi` : '';
+          const displayName = c.clubName === c.courseName ? c.clubName : `${c.clubName} — ${c.courseName}`;
+          lines.push(`**${displayName}**${distance}`);
           lines.push(`  ${c.address}`);
-          if (c.website) lines.push(`  Website: ${c.website}`);
-          if (c.phone) lines.push(`  Phone: ${c.phone}`);
+          if (c.par) lines.push(`  Par ${c.par}, ${c.holes ?? '?'} holes, ${c.yardage ?? '?'} yards`);
+          lines.push(`  (course id: ${c.id})`);
           lines.push('');
         }
+
+        lines.push(
+          '\nNote: GolfCourseAPI provides course data but not booking websites. To check tee times, you may need the course\'s booking website URL.',
+        );
 
         return lines.join('\n');
       }
@@ -174,7 +172,6 @@ export async function executeGolfTool(name: string, input: unknown): Promise<str
           players: params.players,
         });
 
-        // Wait for the task to complete
         const result = await waitForTask(task.task_id);
 
         if (result.status !== 'completed') {
@@ -200,7 +197,7 @@ export async function executeGolfTool(name: string, input: unknown): Promise<str
           players: params.players,
         });
 
-        return `Booking task started for ${params.course_name} on ${params.date} at ${params.time} for ${params.players} player(s).\n\nTask ID: ${task.task_id}\nStatus: ${task.status}\n\nThe booking is being processed. This typically takes 60-90 seconds. Ask me to check the status if needed.`;
+        return `Booking task started for ${params.course_name} on ${params.date} at ${params.time} for ${params.players} player(s).\n\nTask ID: ${task.task_id}\nStatus: ${task.status}\n\nThe booking is being processed. This typically takes 60-90 seconds.`;
       }
 
       default:
@@ -208,6 +205,7 @@ export async function executeGolfTool(name: string, input: unknown): Promise<str
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error(`[golf] ${name} failed:`, err);
     return `Error executing ${name}: ${message}`;
   }
 }
