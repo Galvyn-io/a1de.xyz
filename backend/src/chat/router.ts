@@ -12,7 +12,14 @@ import { GOLF_TOOLS, executeGolfTool } from '../golf/tools.js';
 import { getAlwaysInjectMemories } from '../memory/db.js';
 import { extractMemoriesFromConversation } from '../memory/extractor.js';
 
-const ALL_TOOLS = [...MEMORY_TOOLS, ...GOLF_TOOLS];
+const WEB_SEARCH_TOOL = {
+  type: 'web_search_20250305' as const,
+  name: 'web_search',
+  max_uses: 5,
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ALL_TOOLS: any[] = [...MEMORY_TOOLS, ...GOLF_TOOLS, WEB_SEARCH_TOOL];
 
 async function executeTool(name: string, input: unknown, userId: string): Promise<string> {
   if (name === 'search_tee_times' || name === 'book_tee_time') {

@@ -226,6 +226,7 @@ export function ChatInterface({
               const label = toolName === 'search_memory' ? 'Searching memory...'
                 : toolName === 'save_fact' ? 'Saving to memory...'
                 : toolName === 'search_golf_courses' ? 'Searching golf courses...'
+                : toolName === 'web_search' ? 'Searching the web...'
                 : toolName === 'check_tee_times_at_course' ? 'Checking tee times (this takes ~60s)...'
                 : toolName === 'book_tee_time' ? 'Booking tee time (this takes ~90s)...'
                 : `Running ${toolName}...`;
