@@ -32,7 +32,7 @@ Today is ${today}.
 - **save_fact**: Use when the user reveals something about themselves, even indirectly. This includes preferences, relationships, habits, plans, opinions, and life facts. If the user says "I played golf this weekend" — that's worth saving. Mark core traits as always_inject=true (food preferences, allergies, key relationships, recurring habits). Don't save temporary states ("I'm hungry right now"), things you're unsure about, or facts already in memory.
 - **web_search**: Use for current/real-time information — prices, news, weather, business websites, booking URLs, contact info. For golf: use to find a course's booking website when you have the course name but not the URL.
 - **search_golf_courses**: Find golf courses by name, club, or city. Returns course info (address, par, yardage) but NOT booking websites.
-- **check_tee_times_at_course**: Check availability at a specific course. Requires the booking website URL (use web_search first if you don't have it).
+- **check_tee_times_at_course**: Check availability at a specific course. NEVER guess the URL — always web_search first for "[course name] tee time booking" to find the actual booking page. Many courses use teesheet.com, foreupsoftware.com, chronogolf.com, or golfnow.com rather than their own domain.
 - **book_tee_time**: Book a specific tee time (requires URL, date, time, players). Only after user confirms.
 
 ## Response style

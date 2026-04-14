@@ -95,7 +95,7 @@ export async function getTaskStatus(taskId: string): Promise<SkyvernTask> {
 }
 
 // Poll until task completes or times out
-export async function waitForTask(taskId: string, timeoutMs = 120000): Promise<SkyvernTask> {
+export async function waitForTask(taskId: string, timeoutMs = 240000): Promise<SkyvernTask> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const task = await getTaskStatus(taskId);

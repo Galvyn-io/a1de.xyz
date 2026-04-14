@@ -36,8 +36,10 @@ export const GOLF_TOOLS: Anthropic.Tool[] = [
   {
     name: 'check_tee_times_at_course',
     description:
-      'Check tee time availability at a specific golf course by navigating their website. Uses browser automation (takes 30-60 seconds). ' +
-      'Requires the course website URL. If you only have the course name, ask the user for the website or search the web first.',
+      'Check tee time availability at a specific golf course by navigating their BOOKING website. Uses browser automation (takes 1-3 minutes). ' +
+      'CRITICAL: You MUST use web_search first to find the actual booking URL — do not guess or construct URLs. ' +
+      'Many golf courses use third-party booking systems (teesheet.com, foreupsoftware.com, chronogolf.com, golfnow.com) rather than their own .com domain. ' +
+      'Search for the specific booking page URL before calling this tool.',
     input_schema: {
       type: 'object' as const,
       properties: {
