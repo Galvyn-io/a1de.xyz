@@ -47,3 +47,28 @@ export interface Message {
   model: string | null;
   created_at: string;
 }
+
+export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+export interface Task {
+  id: string;
+  user_id: string;
+  type: string;
+  status: TaskStatus;
+  input: Record<string, unknown>;
+  output: Record<string, unknown> | null;
+  error: string | null;
+  external_provider: string | null;
+  external_id: string | null;
+  progress_message: string | null;
+  progress_pct: number | null;
+  conversation_id: string | null;
+  schedule_id: string | null;
+  parent_task_id: string | null;
+  scheduled_for: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  retry_count: number;
+  created_at: string;
+  updated_at: string;
+}

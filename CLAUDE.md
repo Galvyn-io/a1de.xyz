@@ -27,10 +27,14 @@ A1DE (formerly "Jarvis") is a personal family AI assistant. Monorepo with Next.j
 - Embeddings: Vertex AI Gemini Embedding (gemini-embedding-001, 1536 dims) via Application Default Credentials
 - Langfuse telemetry: tracing of all Claude API calls with token usage, latency, cost, tool iterations
 - Backend deployed to Cloud Run (`a1de-backend` in `us-west1`)
-- Database: `user_profiles`, `connectors`, `connector_credentials`, `conversations`, `messages`, `entities`, `memories`, `entity_relations`, `memory_entities`, `health_metrics`, `schedules` tables with RLS
+- Background memory extraction (Haiku runs after each chat turn, extracts facts to knowledge graph)
+- Unified task system: every async op (golf search/book, memory extract, future cron/connector syncs) flows through `backend/src/tasks/`. `/tasks` UI shows live status via Supabase realtime. Cloud Scheduler polls running tasks every minute.
+- Golf tools: GolfCourseAPI for course lookup, Skyvern for browser-automated tee time search + booking, verified booking URLs cached to memory
+- Banking connector: Plaid Link for bank account OAuth (production creds stored)
+- Web search tool: Claude's native `web_search_20250305` for real-time info
+- Database: `user_profiles`, `connectors`, `connector_credentials`, `conversations`, `messages`, `entities`, `memories`, `entity_relations`, `memory_entities`, `health_metrics`, `schedules`, `tasks` tables with RLS
 
 **What's NOT built yet:**
-- Background extraction (auto-extract memories from chat conversations)
 - Connector ingestion (Gmail/Calendar → memories)
 - Health metrics connector (Apple Health/Whoop → health_metrics table)
 - Proactive engine (daily checks, reminders, pattern detection)
@@ -60,11 +64,26 @@ backend/
     │   ├── router.ts         # POST /chat, GET /stream (SSE + tool loop), conversations
     │   ├── db.ts             # Conversation + message persistence
     │   └── claude.ts         # Claude API wrapper, system prompt, tool-use
-    └── memory/
-        ├── embeddings.ts     # Vertex AI Gemini Embedding wrapper
-        ├── db.ts             # Memory + entity CRUD, hybrid search
-        ├── search.ts         # Public hybrid search API
-        └── tools.ts          # search_memory + save_fact tool definitions + executor
+    ├── memory/
+    │   ├── embeddings.ts     # Vertex AI Gemini Embedding wrapper
+    │   ├── db.ts             # Memory + entity CRUD, hybrid search
+    │   ├── search.ts         # Public hybrid search API
+    │   ├── extractor.ts      # Background fact extraction from conversations (Haiku)
+    │   └── tools.ts          # search_memory + save_fact tool definitions + executor
+    ├── golf/
+    │   ├── golfcourseapi.ts  # Course lookup via GolfCourseAPI
+    │   ├── places.ts         # Google Places geocoding helper
+    │   ├── skyvern.ts        # Skyvern API wrapper (browser automation)
+    │   └── tools.ts          # search_golf_courses, check_tee_times_at_course, book_tee_time
+    └── tasks/
+        ├── types.ts          # TaskHandler interface, TaskRow type
+        ├── registry.ts       # Handler registration
+        ├── runner.ts         # createTask, runTask, pollRunningTasks
+        ├── db.ts             # Supabase CRUD for tasks
+        ├── router.ts         # GET /tasks, GET /tasks/:id, POST /tasks/poll
+        ├── chat-notifier.ts  # Append task results to a chat conversation
+        ├── index.ts          # registerAllHandlers() — call once at startup
+        └── handlers/         # One file per task type (golf.search, memory.extract, ...)
 
 web/app/
 ├── src/
@@ -74,7 +93,9 @@ web/app/
 │   │   ├── login/            # Google OAuth login
 │   │   ├── register/         # Choose assistant name
 │   │   ├── dashboard/        # Protected dashboard
-│   │   ├── chat/             # Chat UI (streaming, conversation sidebar)
+│   │   ├── chat/             # Chat UI (streaming, conversation sidebar, realtime messages)
+│   │   ├── memories/         # Memory browser (list/delete facts and entities)
+│   │   ├── tasks/            # Tasks dashboard (live status via Supabase realtime)
 │   │   ├── connectors/       # List, add, manage connectors
 │   │   ├── admin/            # Admin-only user list
 │   │   └── auth/callback/    # OAuth callback handler
@@ -90,14 +111,16 @@ infra/sql/
 ├── 001_user_profiles.sql     # user_profiles table, RLS, admin trigger
 ├── 002_connectors.sql        # connectors + connector_credentials tables, RLS
 ├── 003_conversations.sql     # conversations + messages tables, RLS
-└── 004_memory.sql            # entities, memories, relations, health, schedules, hybrid_search
+├── 004_memory.sql            # entities, memories, relations, health, schedules, hybrid_search
+└── 005_tasks.sql             # tasks table + realtime publication
 
 docs/
 ├── auth.md                   # Authentication architecture
 ├── chat.md                   # Chat system + tool-use loop
 ├── connectors.md             # Connector system architecture
-├── deployment.md             # Vercel + Cloud Run + Vertex AI deployment
-└── memory.md                 # Memory system (knowledge graph, hybrid search, tools)
+├── deployment.md             # Vercel + Cloud Run + Vertex AI + Cloud Scheduler
+├── memory.md                 # Memory system (knowledge graph, hybrid search, tools)
+└── tasks.md                  # Unified async task system
 ```
 
 ## Adding a new connector provider
@@ -135,7 +158,9 @@ The connectors list page (`web/app/src/app/connectors/page.tsx`) renders section
 - `docs/deployment.md` — Deployment guide (Vercel + Cloud Run)
 - `backend/src/telemetry.ts` — Langfuse tracing
 - `backend/src/chat/` — Chat API (streaming, tool-use loop, Claude integration)
-- `backend/src/memory/` — Memory system (embeddings, hybrid search, tools)
+- `backend/src/memory/` — Memory system (embeddings, hybrid search, tools, background extraction)
+- `backend/src/golf/` — Golf course lookup + Skyvern browser automation
+- `backend/src/tasks/` — Unified async task system (runner, handlers, polling)
 - `backend/src/connectors/` — Connector OAuth + CRUD
 - `web/app/src/lib/connectors.ts` — Single source of truth for provider display metadata
 - `infra/sql/` — Database migrations

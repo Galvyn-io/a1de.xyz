@@ -21,6 +21,7 @@ const envSchema = z.object({
   STEEL_API_KEY: z.string().min(1),
   GOOGLE_PLACES_API_KEY: z.string().min(1),
   GOLF_COURSE_API_KEY: z.string().min(1),
+  TASK_POLL_SECRET: z.string().min(16),
 });
 
 export const config = envSchema.parse(process.env);

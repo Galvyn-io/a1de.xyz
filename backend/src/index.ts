@@ -5,6 +5,11 @@ import { config } from './config.js';
 import { connectors } from './connectors/router.js';
 import { chat } from './chat/router.js';
 import { memories } from './memory/router.js';
+import { tasks } from './tasks/router.js';
+import { registerAllHandlers } from './tasks/index.js';
+
+// Register task handlers at startup
+registerAllHandlers();
 
 const app = new Hono();
 
@@ -17,6 +22,7 @@ app.get('/health', (c) => {
 app.route('/connectors', connectors);
 app.route('/chat', chat);
 app.route('/memories', memories);
+app.route('/tasks', tasks);
 
 serve({ fetch: app.fetch, port: config.PORT }, (info) => {
   console.log(`A1DE backend running on http://localhost:${info.port}`);

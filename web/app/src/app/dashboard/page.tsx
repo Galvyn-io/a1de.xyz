@@ -38,6 +38,12 @@ export default async function DashboardPage() {
             Memory
           </Link>
           <Link
+            href="/tasks"
+            className="inline-block rounded-xl border border-zinc-800 px-6 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
+          >
+            Tasks
+          </Link>
+          <Link
             href="/connectors"
             className="inline-block rounded-xl border border-zinc-800 px-6 py-3 text-sm font-medium transition-colors hover:bg-zinc-900"
           >

@@ -78,12 +78,39 @@ Current env vars:
 - `LANGFUSE_PUBLIC_KEY` — Langfuse public key for telemetry
 - `LANGFUSE_SECRET_KEY` — Langfuse secret key for telemetry
 - `LANGFUSE_BASE_URL` — `https://us.cloud.langfuse.com`
+- `SKYVERN_API_KEY` — Skyvern browser-automation API key
+- `STEEL_API_KEY` — Steel.dev browser API key (reserved for future use)
+- `GOLF_COURSE_API_KEY` — golfcourseapi.com key for course search
+- `GOOGLE_PLACES_API_KEY` — Google Places API (geocoding zip codes)
+- `PLAID_CLIENT_ID` / `PLAID_SECRET` / `PLAID_ENV` — banking connector
+- `TASK_POLL_SECRET` — Shared secret for Cloud Scheduler → `/tasks/poll`
 
 ### Viewing logs
 
 ```bash
 gcloud run services logs read a1de-backend \
   --project a1de-assistant --region us-west1 --limit 50
+```
+
+## Cloud Scheduler (Task Polling)
+
+The task system needs to periodically poll external services (e.g. Skyvern) to advance running tasks. Cloud Scheduler hits `POST /tasks/poll` on the backend every minute.
+
+- **Job:** `a1de-task-poller` in `us-west1`
+- **Schedule:** `* * * * *` (every minute)
+- **Target:** `https://a1de-backend-161515709709.us-west1.run.app/tasks/poll`
+- **Auth:** `X-Poll-Secret` header matches `TASK_POLL_SECRET` env var on Cloud Run
+
+```bash
+# Create/update:
+gcloud scheduler jobs create http a1de-task-poller \
+  --project a1de-assistant \
+  --location us-west1 \
+  --schedule="* * * * *" \
+  --uri="https://a1de-backend-161515709709.us-west1.run.app/tasks/poll" \
+  --http-method=POST \
+  --headers="X-Poll-Secret=<secret>" \
+  --attempt-deadline=90s
 ```
 
 ## Vertex AI (Embeddings)

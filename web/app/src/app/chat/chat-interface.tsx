@@ -63,6 +63,35 @@ export function ChatInterface({
     }
   }, [initialConversationId, initialMessages]);
 
+  // Subscribe to realtime new messages on the active conversation
+  // Used to pick up task-generated messages (tee time results, booking confirmations)
+  // that appear without the user having to do anything
+  useEffect(() => {
+    if (!activeId) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`conversation:${activeId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${activeId}` },
+        (payload) => {
+          const newMsg = payload.new as Message;
+          setMessages((prev) => {
+            // Skip if we already have this message (streaming flow inserts too)
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            const updated = [...prev, newMsg];
+            messageCache.current.set(activeId, updated);
+            return updated;
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeId]);
+
   async function loadMessages(conversationId: string) {
     // Return cached messages instantly if available
     const cached = messageCache.current.get(conversationId);
@@ -369,6 +398,9 @@ export function ChatInterface({
           <div className="border-t border-zinc-800 p-4 space-y-2">
             <Link href="/memories" className="block text-xs text-zinc-500 hover:text-zinc-300">
               Memory
+            </Link>
+            <Link href="/tasks" className="block text-xs text-zinc-500 hover:text-zinc-300">
+              Tasks
             </Link>
             <Link href="/dashboard" className="block text-xs text-zinc-500 hover:text-zinc-300">
               Dashboard

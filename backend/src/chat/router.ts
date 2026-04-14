@@ -10,7 +10,7 @@ import { langfuse } from '../telemetry.js';
 import { MEMORY_TOOLS, executeTool as executeMemoryTool } from '../memory/tools.js';
 import { GOLF_TOOLS, executeGolfTool } from '../golf/tools.js';
 import { getAlwaysInjectMemories } from '../memory/db.js';
-import { extractMemoriesFromConversation } from '../memory/extractor.js';
+import { createTask } from '../tasks/index.js';
 
 const WEB_SEARCH_TOOL = {
   type: 'web_search_20250305' as const,
@@ -23,9 +23,9 @@ const ALL_TOOLS: any[] = [...MEMORY_TOOLS, ...GOLF_TOOLS, WEB_SEARCH_TOOL];
 
 const GOLF_TOOL_NAMES = new Set(GOLF_TOOLS.map((t) => t.name));
 
-async function executeTool(name: string, input: unknown, userId: string): Promise<string> {
+async function executeTool(name: string, input: unknown, userId: string, conversationId?: string): Promise<string> {
   if (GOLF_TOOL_NAMES.has(name)) {
-    return executeGolfTool(name, input, userId);
+    return executeGolfTool(name, input, userId, conversationId);
   }
   return executeMemoryTool(name, input, userId);
 }
@@ -196,7 +196,7 @@ chat.get('/stream', requireAuth, async (c) => {
           const toolResults = await Promise.all(
             toolUseBlocks.map(async (tb) => {
               if (tb.type !== 'tool_use') return null;
-              const result = await executeTool(tb.name, tb.input, user.id);
+              const result = await executeTool(tb.name, tb.input, user.id, conversationId);
 
               // Save tool result message
               await addMessage({
@@ -250,15 +250,18 @@ chat.get('/stream', requireAuth, async (c) => {
         data: JSON.stringify({ done: true, message_id: saved.id }),
       });
 
-      // Background: extract memories from this conversation turn (fire-and-forget)
+      // Background: extract memories from this conversation turn via the task system
       const lastUserMessage = history.filter((m) => m.role === 'user').pop();
       if (lastUserMessage?.content && finalContent) {
-        extractMemoriesFromConversation({
+        createTask({
           userId: user.id,
+          type: 'memory.extract',
           conversationId,
-          userMessage: lastUserMessage.content,
-          assistantResponse: finalContent,
-        }).catch((err) => console.error('Background extraction failed:', err));
+          input: {
+            userMessage: lastUserMessage.content,
+            assistantResponse: finalContent,
+          },
+        }).catch((err) => console.error('Background extraction task failed:', err));
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';

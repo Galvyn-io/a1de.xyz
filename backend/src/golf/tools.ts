@@ -1,8 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { searchCourses, filterByDistance } from './golfcourseapi.js';
 import { geocodeZip } from './places.js';
-import { searchTeeTimesOnSite, createBookingTask, getTaskStatus } from './skyvern.js';
-import { addMemory } from '../memory/db.js';
+import { createTask, getTaskForUser } from '../tasks/index.js';
 
 // Default location: 98011 (Bothell, WA)
 const DEFAULT_LAT = 47.7606;
@@ -37,12 +36,11 @@ export const GOLF_TOOLS: Anthropic.Tool[] = [
   {
     name: 'check_tee_times_at_course',
     description:
-      'START a background task to check tee time availability at a golf course. Returns IMMEDIATELY with a task ID — does NOT wait for results. ' +
-      'The task runs in the background for 1-3 minutes. Tell the user the task is running and they can ask for status anytime (even later, or after refreshing the page). ' +
-      'Use check_task_status to retrieve the result.\n\n' +
-      'CRITICAL: Before calling this, use search_memory to see if the booking URL is already saved for this course. ' +
-      'If not in memory, use web_search to find the actual booking URL — do NOT guess or construct URLs. ' +
-      'Many golf courses use third-party booking systems (teesheet.com, foreupsoftware.com, chronogolf.com, golfnow.com).',
+      'START a BACKGROUND task to check tee time availability at a golf course. Returns IMMEDIATELY with a task_id. ' +
+      'The task runs in the background for 1-3 minutes. When it completes, a message will automatically be added to the chat with the results (the user does NOT need to ask for status).\n\n' +
+      'Before calling: (1) search_memory for "[course name] booking URL" — if saved, use it. ' +
+      '(2) If not in memory, web_search for "[course name] tee time booking" to find the real booking URL. ' +
+      'NEVER guess URLs. Prefer course-direct and TeeItUp/foreUP/Chronogolf over GolfNow.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -67,59 +65,36 @@ export const GOLF_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: 'check_task_status',
+    name: 'book_tee_time',
     description:
-      'Check the status/result of a previously-started check_tee_times_at_course or book_tee_time task. ' +
-      'If the task succeeded, the booking URL is automatically saved to memory for next time. ' +
-      'If the user asks about a task started earlier (even in a previous conversation), use this with the task_id they mention.',
+      'START a BACKGROUND task to book a specific tee time. Returns IMMEDIATELY with a task_id. ' +
+      'Task runs 2-3 minutes. Result will auto-appear in the chat when complete. Only call after user confirms.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        course_website: { type: 'string' },
+        course_name: { type: 'string' },
+        date: { type: 'string' },
+        time: { type: 'string' },
+        players: { type: 'number' },
+      },
+      required: ['course_website', 'course_name', 'date', 'time', 'players'],
+    },
+  },
+  {
+    name: 'get_task_status',
+    description:
+      'Get the current status of a task (by task_id). Only call this if the user explicitly asks about a task. ' +
+      'Normally, task results auto-appear in the chat when done — you do NOT need to poll.',
     input_schema: {
       type: 'object' as const,
       properties: {
         task_id: {
           type: 'string',
-          description: 'The task ID from a previous check_tee_times_at_course or book_tee_time call',
-        },
-        course_name: {
-          type: 'string',
-          description: 'Course name (optional — used to save URL as memory if successful)',
-        },
-        course_website: {
-          type: 'string',
-          description: 'The URL that was used (optional — saved to memory if task succeeded)',
+          description: 'The internal task ID (UUID)',
         },
       },
       required: ['task_id'],
-    },
-  },
-  {
-    name: 'book_tee_time',
-    description:
-      'Book a specific tee time at a golf course using browser automation. Only call this AFTER the user has confirmed which course and time they want. Takes 60-90 seconds.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        course_website: {
-          type: 'string',
-          description: 'The golf course booking website URL',
-        },
-        course_name: {
-          type: 'string',
-          description: 'Name of the golf course',
-        },
-        date: {
-          type: 'string',
-          description: 'Date (YYYY-MM-DD)',
-        },
-        time: {
-          type: 'string',
-          description: 'Tee time (e.g. "2:30 PM")',
-        },
-        players: {
-          type: 'number',
-          description: 'Number of players',
-        },
-      },
-      required: ['course_website', 'course_name', 'date', 'time', 'players'],
     },
   },
 ];
@@ -145,26 +120,26 @@ interface BookTeeTimeInput {
   players: number;
 }
 
-interface CheckTaskStatusInput {
+interface GetTaskStatusInput {
   task_id: string;
-  course_name?: string;
-  course_website?: string;
 }
 
-export async function executeGolfTool(name: string, input: unknown, userId?: string): Promise<string> {
+export async function executeGolfTool(
+  name: string,
+  input: unknown,
+  userId: string,
+  conversationId?: string,
+): Promise<string> {
   console.log(`[golf] executing ${name} with input:`, JSON.stringify(input));
   try {
     switch (name) {
       case 'search_golf_courses': {
         const params = input as SearchCoursesInput;
-
         const results = await searchCourses(params.query);
-
         if (results.length === 0) {
           return `No golf courses found matching "${params.query}".`;
         }
 
-        // Optionally filter by distance from a zip
         let filtered: Array<(typeof results)[0] & { distanceMiles?: number }> = results;
         if (params.near_zip) {
           const center = await geocodeZip(params.near_zip);
@@ -177,105 +152,54 @@ export async function executeGolfTool(name: string, input: unknown, userId?: str
           return `Found ${results.length} courses matching "${params.query}" but none within ${params.radius_miles ?? 30} miles of ${params.near_zip}.`;
         }
 
-        const lines: string[] = [
-          `Found ${filtered.length} course${filtered.length === 1 ? '' : 's'}:\n`,
-        ];
-
+        const lines: string[] = [`Found ${filtered.length} course${filtered.length === 1 ? '' : 's'}:\n`];
         for (const c of filtered.slice(0, 15)) {
           const distance = c.distanceMiles !== undefined ? ` — ${c.distanceMiles.toFixed(1)} mi` : '';
           const displayName = c.clubName === c.courseName ? c.clubName : `${c.clubName} — ${c.courseName}`;
           lines.push(`**${displayName}**${distance}`);
           lines.push(`  ${c.address}`);
           if (c.par) lines.push(`  Par ${c.par}, ${c.holes ?? '?'} holes, ${c.yardage ?? '?'} yards`);
-          lines.push(`  (course id: ${c.id})`);
           lines.push('');
         }
-
-        lines.push(
-          '\nNote: GolfCourseAPI provides course data but not booking websites. To check tee times, you may need the course\'s booking website URL.',
-        );
-
+        lines.push('\nNote: GolfCourseAPI provides course data but not booking websites. Use web_search to find the booking page.');
         return lines.join('\n');
       }
 
       case 'check_tee_times_at_course': {
         const params = input as CheckTeeTimesInput;
-
-        const task = await searchTeeTimesOnSite({
-          url: params.course_website,
-          courseName: params.course_name,
-          date: params.date,
-          players: params.players,
+        const task = await createTask({
+          userId,
+          type: 'golf.search',
+          input: params as unknown as Record<string, unknown>,
+          conversationId,
         });
-
         return `Started tee time check for ${params.course_name} on ${params.date}.\n\n` +
-          `Task ID: \`${task.task_id}\`\n` +
-          `URL being checked: ${params.course_website}\n\n` +
-          `This runs in the background for 1-3 minutes. The user can close this page and come back — ask for the task status anytime using the task ID above. ` +
-          `I'll save the booking URL to memory if the check succeeds, so we won't need to search for it next time.`;
+          `Task ID: \`${task.id}\`\n` +
+          `URL: ${params.course_website}\n\n` +
+          `Running in the background. The user can close this page — results will automatically appear in the chat (and on the /tasks page) when complete (~1-3 min).`;
       }
 
       case 'book_tee_time': {
         const params = input as BookTeeTimeInput;
-
-        const task = await createBookingTask({
-          url: params.course_website,
-          courseName: params.course_name,
-          date: params.date,
-          time: params.time,
-          players: params.players,
+        const task = await createTask({
+          userId,
+          type: 'golf.book',
+          input: params as unknown as Record<string, unknown>,
+          conversationId,
         });
-
-        return `Started booking task for ${params.course_name} on ${params.date} at ${params.time} for ${params.players} player(s).\n\n` +
-          `Task ID: \`${task.task_id}\`\n\n` +
-          `Runs in the background for 2-3 minutes. User can close the page and check back later. ` +
-          `Use check_task_status with this task ID to retrieve the booking confirmation.`;
+        return `Started booking task for ${params.course_name} on ${params.date} at ${params.time} (${params.players} players).\n\n` +
+          `Task ID: \`${task.id}\`\n\n` +
+          `Running in the background. Confirmation will appear in the chat when complete (~2-3 min).`;
       }
 
-      case 'check_task_status': {
-        const params = input as CheckTaskStatusInput;
-
-        const result = await getTaskStatus(params.task_id);
-
-        if (result.status === 'created' || result.status === 'queued' || result.status === 'running') {
-          return `Task ${params.task_id} is still ${result.status}. Please check again in 30-60 seconds.`;
-        }
-
-        if (result.status === 'failed' || result.status === 'terminated') {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const failureReason = (result as any).failure_reason ?? 'no reason provided';
-          return `Task ${params.task_id} ${result.status}. Reason: ${failureReason}\n\n` +
-            (params.course_website ? `The URL ${params.course_website} did not work. Try searching the web for a different booking page.` : '');
-        }
-
-        if (result.status === 'completed') {
-          const extracted = result.extracted_information;
-
-          // Save the booking URL to memory since it worked
-          if (userId && params.course_name && params.course_website) {
-            try {
-              await addMemory({
-                userId,
-                content: `${params.course_name} booking URL: ${params.course_website}`,
-                source: 'golf_verified',
-                category: 'project',
-                alwaysInject: false,
-                entities: [params.course_name],
-              });
-            } catch (e) {
-              console.error('[golf] failed to save URL to memory:', e);
-            }
-          }
-
-          if (!extracted) {
-            return `Task ${params.task_id} completed but returned no data. The site may require login or have no availability.`;
-          }
-
-          return `Task ${params.task_id} completed!\n\nResult:\n${JSON.stringify(extracted, null, 2)}` +
-            (params.course_name && params.course_website ? `\n\n(Booking URL saved to memory for future use.)` : '');
-        }
-
-        return `Task ${params.task_id} status: ${result.status}`;
+      case 'get_task_status': {
+        const params = input as GetTaskStatusInput;
+        const task = await getTaskForUser(params.task_id, userId);
+        if (!task) return `Task ${params.task_id} not found.`;
+        return `Task ${task.id}:\nType: ${task.type}\nStatus: ${task.status}\n` +
+          (task.progress_message ? `Progress: ${task.progress_message}\n` : '') +
+          (task.output ? `Output: ${JSON.stringify(task.output).slice(0, 500)}\n` : '') +
+          (task.error ? `Error: ${task.error}\n` : '');
       }
 
       default:
