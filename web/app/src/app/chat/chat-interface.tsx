@@ -227,8 +227,9 @@ export function ChatInterface({
                 : toolName === 'save_fact' ? 'Saving to memory...'
                 : toolName === 'search_golf_courses' ? 'Searching golf courses...'
                 : toolName === 'web_search' ? 'Searching the web...'
-                : toolName === 'check_tee_times_at_course' ? 'Checking tee times (this takes 1-3 minutes)...'
-                : toolName === 'book_tee_time' ? 'Booking tee time (this takes 2-3 minutes)...'
+                : toolName === 'check_tee_times_at_course' ? 'Starting tee time check...'
+                : toolName === 'check_task_status' ? 'Checking task status...'
+                : toolName === 'book_tee_time' ? 'Starting booking...'
                 : `Running ${toolName}...`;
               setToolStatus(label);
             }

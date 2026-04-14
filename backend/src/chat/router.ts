@@ -25,7 +25,7 @@ const GOLF_TOOL_NAMES = new Set(GOLF_TOOLS.map((t) => t.name));
 
 async function executeTool(name: string, input: unknown, userId: string): Promise<string> {
   if (GOLF_TOOL_NAMES.has(name)) {
-    return executeGolfTool(name, input);
+    return executeGolfTool(name, input, userId);
   }
   return executeMemoryTool(name, input, userId);
 }
