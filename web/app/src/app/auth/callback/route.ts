@@ -20,7 +20,7 @@ export async function GET(request: Request) {
           .single<Pick<UserProfile, 'is_registered'>>();
 
         if (profile?.is_registered) {
-          return NextResponse.redirect(`${origin}/dashboard`);
+          return NextResponse.redirect(`${origin}/chat`);
         }
         return NextResponse.redirect(`${origin}/register`);
       }

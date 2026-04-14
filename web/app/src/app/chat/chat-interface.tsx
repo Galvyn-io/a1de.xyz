@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/client';
 import type { UserProfile, Conversation, Message } from '@/lib/supabase/types';
+import { NowPanel } from './now-panel';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
@@ -26,6 +27,7 @@ export function ChatInterface({
   const [streaming, setStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [nowOpen, setNowOpen] = useState(true);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -50,6 +52,18 @@ export function ChatInterface({
       ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
     }
   }, [input]);
+
+  // ⌘. / Ctrl+. toggles the right panel
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === '.') {
+        e.preventDefault();
+        setNowOpen((v) => !v);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   async function getToken() {
     const supabase = createClient();
@@ -418,7 +432,15 @@ export function ChatInterface({
               <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
             </svg>
           </button>
-          <h1 className="text-sm font-medium">{assistantName}</h1>
+          <h1 className="text-sm font-medium flex-1">{assistantName}</h1>
+          <button
+            onClick={() => setNowOpen((v) => !v)}
+            className="hidden md:flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs text-fg-muted transition-colors hover:border-border-strong hover:text-fg"
+            title="Toggle Now panel (⌘.)"
+          >
+            <span>Now</span>
+            <kbd className="rounded border border-border px-1 py-0 text-[9px] font-mono">⌘.</kbd>
+          </button>
         </div>
 
         {/* Messages */}
@@ -533,6 +555,23 @@ export function ChatInterface({
           </p>
         </div>
       </div>
+
+      {/* Now panel — desktop only, toggled with ⌘. */}
+      {nowOpen && (
+        <div className="hidden md:flex w-80 shrink-0 flex-col border-l border-border bg-bg-1">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-fg-muted">Now</h2>
+            <button
+              onClick={() => setNowOpen(false)}
+              className="text-xs text-fg-subtle hover:text-fg"
+              title="Close (⌘.)"
+            >
+              ✕
+            </button>
+          </div>
+          <NowPanel userId={profile.id} />
+        </div>
+      )}
     </div>
   );
 }
