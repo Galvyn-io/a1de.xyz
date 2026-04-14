@@ -21,8 +21,10 @@ const WEB_SEARCH_TOOL = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ALL_TOOLS: any[] = [...MEMORY_TOOLS, ...GOLF_TOOLS, WEB_SEARCH_TOOL];
 
+const GOLF_TOOL_NAMES = new Set(GOLF_TOOLS.map((t) => t.name));
+
 async function executeTool(name: string, input: unknown, userId: string): Promise<string> {
-  if (name === 'search_tee_times' || name === 'book_tee_time') {
+  if (GOLF_TOOL_NAMES.has(name)) {
     return executeGolfTool(name, input);
   }
   return executeMemoryTool(name, input, userId);
