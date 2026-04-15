@@ -22,7 +22,7 @@ vercel deploy --prod
 
 - `NEXT_PUBLIC_SUPABASE_URL` = `https://erwowjlaakatqsvuppzj.supabase.co`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = (from Supabase dashboard)
-- `NEXT_PUBLIC_BACKEND_URL` = `https://a1de-backend-161515709709.us-west1.run.app`
+- `NEXT_PUBLIC_BACKEND_URL` = `https://cr.a1de.xyz`
 
 ### pnpm workspace note
 
@@ -31,7 +31,7 @@ Vercel detects `pnpm-workspace.yaml` at the repo root and installs dependencies 
 ## Backend (Cloud Run)
 
 - **Service:** `a1de-backend`
-- **URL:** `https://a1de-backend-161515709709.us-west1.run.app`
+- **URL:** `https://cr.a1de.xyz`
 - **Region:** `us-west1` (close to Supabase in us-west-1)
 - **GCP Project:** `a1de-assistant` (always pass `--project a1de-assistant` to gcloud)
 - **Image:** `us-west1-docker.pkg.dev/a1de-assistant/cloud-run-source-deploy/a1de-backend:latest`
@@ -71,7 +71,7 @@ Current env vars:
 - `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (bypasses RLS)
 - `GOOGLE_OAUTH_CLIENT_ID` — GCP OAuth client ID
 - `GOOGLE_OAUTH_CLIENT_SECRET` — GCP OAuth client secret
-- `OAUTH_CALLBACK_URL` — `https://a1de-backend-161515709709.us-west1.run.app/connectors/google/callback`
+- `OAUTH_CALLBACK_URL` — `https://cr.a1de.xyz/connectors/google/callback`
 - `FRONTEND_URL` — `https://app.a1de.xyz`
 - `OAUTH_STATE_SECRET` — Min 32-char secret for signing OAuth state JWTs
 - `ANTHROPIC_API_KEY` — Anthropic API key for Claude
@@ -98,7 +98,7 @@ The task system needs to periodically poll external services (e.g. Skyvern) to a
 
 - **Job:** `a1de-task-poller` in `us-west1`
 - **Schedule:** `* * * * *` (every minute)
-- **Target:** `https://a1de-backend-161515709709.us-west1.run.app/tasks/poll`
+- **Target:** `https://cr.a1de.xyz/tasks/poll`
 - **Auth:** `X-Poll-Secret` header matches `TASK_POLL_SECRET` env var on Cloud Run
 
 ```bash
@@ -107,7 +107,7 @@ gcloud scheduler jobs create http a1de-task-poller \
   --project a1de-assistant \
   --location us-west1 \
   --schedule="* * * * *" \
-  --uri="https://a1de-backend-161515709709.us-west1.run.app/tasks/poll" \
+  --uri="https://cr.a1de.xyz/tasks/poll" \
   --http-method=POST \
   --headers="X-Poll-Secret=<secret>" \
   --attempt-deadline=90s
