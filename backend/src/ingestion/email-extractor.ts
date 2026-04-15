@@ -15,8 +15,12 @@ import { config } from '../config.js';
 import { langfuse } from '../telemetry.js';
 import { addMemory } from '../memory/db.js';
 import { upsertEvents } from './events-db.js';
-import type { GmailMessageMeta } from './gmail.js';
+import { fetchAttachment, type GmailMessageMeta } from './gmail.js';
 import type { EmailClass } from './email-classifier.js';
+
+// Only try to parse the first PDF we find, and only if it's under this size.
+// Haiku supports up to 32 MB / 100 pages but extraction cost scales with size.
+const MAX_PDF_BYTES = 5 * 1024 * 1024;
 
 const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
 
@@ -50,17 +54,42 @@ const STRUCTURED_SYSTEM = `Extract structured fields from this email. Return JSO
 
 Only the JSON — no commentary.`;
 
-export async function extractStructuredFromEmail(
-  email: GmailMessageMeta,
-  emailClass: EmailClass,
-): Promise<StructuredFields | null> {
+/**
+ * If the email has an attached PDF under the size cap, fetch and return it
+ * as base64 suitable for Anthropic's document block. Returns null if none.
+ */
+async function fetchPrimaryPdf(params: {
+  credentialId: string;
+  email: GmailMessageMeta;
+}): Promise<{ base64: string; filename: string } | null> {
+  const pdfs = params.email.attachments.filter(
+    (a) => a.mimeType === 'application/pdf' && a.size > 0 && a.size <= MAX_PDF_BYTES,
+  );
+  if (pdfs.length === 0) return null;
+  // Take the first (usually the receipt/invoice/itinerary)
+  const att = pdfs[0]!;
+  const base64 = await fetchAttachment({
+    credentialId: params.credentialId,
+    messageId: params.email.id,
+    attachmentId: att.attachmentId,
+  });
+  if (!base64) return null;
+  return { base64, filename: att.filename };
+}
+
+export async function extractStructuredFromEmail(params: {
+  email: GmailMessageMeta;
+  emailClass: EmailClass;
+  credentialId: string;
+}): Promise<StructuredFields | null> {
+  const { email, emailClass, credentialId } = params;
   const trace = langfuse.trace({
     name: 'email-extract-structured',
     tags: ['ingestion', 'email', emailClass],
-    input: { subject: email.subject, from: email.from },
+    input: { subject: email.subject, from: email.from, attachment_count: email.attachments.length },
   });
 
-  const userContent = `From: ${email.from}
+  const textPart = `From: ${email.from}
 To: ${email.to}
 Subject: ${email.subject}
 Date: ${email.date}
@@ -69,12 +98,37 @@ Category: ${emailClass}
 Snippet:
 ${email.snippet.slice(0, 800)}`;
 
+  // Try to attach the primary PDF for richer extraction
+  let pdf: { base64: string; filename: string } | null = null;
+  try {
+    pdf = await fetchPrimaryPdf({ credentialId, email });
+  } catch (err) {
+    console.warn('[email-extractor] PDF fetch failed (continuing without):', err);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const contentBlocks: any[] = [{ type: 'text', text: textPart }];
+  if (pdf) {
+    contentBlocks.push({
+      type: 'document',
+      source: {
+        type: 'base64',
+        media_type: 'application/pdf',
+        data: pdf.base64,
+      },
+    });
+    contentBlocks.push({
+      type: 'text',
+      text: `The attached PDF is named "${pdf.filename}". Use it for accurate dates, amounts, and line items when extracting.`,
+    });
+  }
+
   try {
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
       system: STRUCTURED_SYSTEM,
-      messages: [{ role: 'user', content: userContent }],
+      messages: [{ role: 'user', content: contentBlocks }],
     });
     const text = response.content
       .filter((b) => b.type === 'text')
@@ -86,7 +140,7 @@ ${email.snippet.slice(0, 800)}`;
       return null;
     }
     const parsed = JSON.parse(match[0]) as StructuredFields;
-    trace.update({ output: parsed.title });
+    trace.update({ output: parsed.title, tags: pdf ? ['ingestion', 'email', emailClass, 'pdf'] : undefined });
     return parsed;
   } catch (err) {
     console.error('[email-extractor] structured failed:', err);
@@ -193,10 +247,15 @@ ${params.email.snippet.slice(0, 800)}`;
 export async function extractAndSaveStructured(params: {
   userId: string;
   connectorId: string;
+  credentialId: string;
   email: GmailMessageMeta;
   emailClass: EmailClass;
 }): Promise<boolean> {
-  const fields = await extractStructuredFromEmail(params.email, params.emailClass);
+  const fields = await extractStructuredFromEmail({
+    email: params.email,
+    emailClass: params.emailClass,
+    credentialId: params.credentialId,
+  });
   if (!fields) return false;
 
   await upsertEvents([

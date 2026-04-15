@@ -183,6 +183,7 @@ export const emailSyncHandler: TaskHandler = {
           const ok = await extractAndSaveStructured({
             userId: connector.user_id,
             connectorId: input.connectorId,
+            credentialId: connector.credential_id,
             email,
             emailClass: cls,
           });

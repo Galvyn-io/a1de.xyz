@@ -106,6 +106,36 @@ connectors.patch('/:id', requireAuth, async (c) => {
   return c.json({ connector: updated });
 });
 
+// Which connector providers have a matching sync task type
+const REFRESH_TASK_TYPES: Record<string, string> = {
+  google_calendar: 'calendar.sync',
+  gmail: 'email.sync',
+};
+
+// Force a full refresh / backfill of a connector on demand
+connectors.post('/:id/refresh', requireAuth, async (c) => {
+  const user = c.get('user');
+  const id = c.req.param('id')!;
+
+  const { getConnector } = await import('./db.js');
+  const connector = await getConnector(id, user.id);
+  if (!connector) return c.json({ error: 'Connector not found' }, 404);
+
+  const taskType = REFRESH_TASK_TYPES[connector.provider];
+  if (!taskType) {
+    return c.json({ error: `No refresh handler for provider: ${connector.provider}` }, 400);
+  }
+
+  const { createTask } = await import('../tasks/index.js');
+  const task = await createTask({
+    userId: user.id,
+    type: taskType,
+    input: { connectorId: id, backfill: true },
+  });
+
+  return c.json({ task_id: task.id, type: taskType });
+});
+
 // Disconnect connector
 connectors.delete('/:id', requireAuth, async (c) => {
   const user = c.get('user');

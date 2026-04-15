@@ -12,6 +12,13 @@
  */
 import { getValidAccessToken } from '../connectors/google-oauth.js';
 
+export interface GmailAttachmentMeta {
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+}
+
 export interface GmailMessageMeta {
   id: string;
   threadId: string;
@@ -22,6 +29,7 @@ export interface GmailMessageMeta {
   date: string;           // RFC 2822 header value
   internalDate: string;   // milliseconds since epoch
   labelIds: string[];
+  attachments: GmailAttachmentMeta[];
 }
 
 /** List message IDs matching a Gmail search query. Paginated. */
@@ -61,15 +69,47 @@ export async function listMessageIds(params: {
 }
 
 /**
- * Fetch a single message's metadata + snippet. Uses `format=metadata` to avoid
- * downloading the full body — much faster and Gmail charges quota by bytes.
+ * Recursively walk a Gmail payload's parts tree collecting attachments.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractAttachments(payload: any): GmailAttachmentMeta[] {
+  const attachments: GmailAttachmentMeta[] = [];
+  function walk(part: {
+    filename?: string;
+    mimeType?: string;
+    body?: { attachmentId?: string; size?: number };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    parts?: any[];
+  }) {
+    if (part.body?.attachmentId && part.filename) {
+      attachments.push({
+        attachmentId: part.body.attachmentId,
+        filename: part.filename,
+        mimeType: part.mimeType ?? 'application/octet-stream',
+        size: part.body.size ?? 0,
+      });
+    }
+    for (const p of part.parts ?? []) walk(p);
+  }
+  if (payload) walk(payload);
+  return attachments;
+}
+
+/**
+ * Fetch a single message's metadata + snippet + attachment index.
+ *
+ * Uses `format=full` (not metadata-only) so we can see attachment parts.
+ * Attachment *contents* are NOT fetched — we only learn what attachments
+ * exist. Callers download them on demand with fetchAttachment().
  */
 export async function fetchMessageMeta(params: {
   credentialId: string;
   messageId: string;
 }): Promise<GmailMessageMeta | null> {
   const accessToken = await getValidAccessToken(params.credentialId);
-  const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${params.messageId}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`;
+  // `full` format returns the parts tree (needed to discover attachments)
+  // but doesn't include inline body text by default.
+  const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${params.messageId}?format=full`;
 
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (res.status === 404) return null;
@@ -84,12 +124,13 @@ export async function fetchMessageMeta(params: {
     snippet?: string;
     internalDate?: string;
     labelIds?: string[];
-    payload?: { headers?: Array<{ name: string; value: string }> };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    payload?: any;
   };
 
   const headers = new Map<string, string>();
   for (const h of data.payload?.headers ?? []) {
-    headers.set(h.name.toLowerCase(), h.value);
+    headers.set((h.name as string).toLowerCase(), h.value as string);
   }
 
   return {
@@ -102,7 +143,28 @@ export async function fetchMessageMeta(params: {
     date: headers.get('date') ?? '',
     internalDate: data.internalDate ?? '0',
     labelIds: data.labelIds ?? [],
+    attachments: extractAttachments(data.payload),
   };
+}
+
+/**
+ * Download an attachment's raw bytes (returned as base64-encoded string
+ * which is what Gmail gives us and what Claude's documents API wants).
+ */
+export async function fetchAttachment(params: {
+  credentialId: string;
+  messageId: string;
+  attachmentId: string;
+}): Promise<string | null> {
+  const accessToken = await getValidAccessToken(params.credentialId);
+  const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${params.messageId}/attachments/${params.attachmentId}`;
+
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) return null;
+  const data = await res.json() as { data?: string };
+  if (!data.data) return null;
+  // Gmail uses URL-safe base64; Anthropic expects standard base64.
+  return data.data.replace(/-/g, '+').replace(/_/g, '/');
 }
 
 /** Batch-fetch metadata for many messages in parallel (bounded). */

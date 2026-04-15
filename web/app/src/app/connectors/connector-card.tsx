@@ -11,8 +11,21 @@ import { PROVIDER_META } from '@/lib/connectors';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
+// Providers that support an on-demand refresh
+const REFRESHABLE = new Set(['google_calendar', 'gmail']);
+
+function ago(iso: string | null): string {
+  if (!iso) return 'never';
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return `${Math.floor(diff / 86_400_000)}d ago`;
+}
+
 export function ConnectorCard({ connector }: { connector: Connector }) {
   const [deleting, setDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
   const { confirm } = useConfirm();
@@ -44,10 +57,32 @@ export function ConnectorCard({ connector }: { connector: Connector }) {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${BACKEND_URL}/connectors/${connector.id}/refresh`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `Server returned ${res.status}`);
+      toast(`Refresh started — check Tasks for progress`, 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast(`Failed to refresh: ${msg}`, 'error');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const statusVariant: 'success' | 'error' | 'default' =
     connector.status === 'active' ? 'success' :
     connector.status === 'error' ? 'error' :
     'default';
+
+  const canRefresh = REFRESHABLE.has(connector.provider);
 
   return (
     <div className="group flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 transition-colors hover:border-border-strong">
@@ -57,11 +92,27 @@ export function ConnectorCard({ connector }: { connector: Connector }) {
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium truncate">{connector.label}</p>
-          <p className="text-xs text-fg-subtle">{PROVIDER_META[connector.provider]?.label ?? connector.provider}</p>
+          <p className="text-xs text-fg-subtle">
+            {PROVIDER_META[connector.provider]?.label ?? connector.provider}
+            {canRefresh && (
+              <span className="ml-2">· synced {ago(connector.last_synced_at)}</span>
+            )}
+          </p>
         </div>
       </div>
       <div className="flex items-center gap-3 shrink-0">
         <Badge variant={statusVariant} dot>{connector.status}</Badge>
+        {canRefresh && (
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            aria-label={`Refresh ${connector.label}`}
+            className="text-xs text-fg-subtle opacity-0 transition-opacity hover:text-accent-text focus:outline focus:outline-1 focus:outline-accent focus:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+            title="Force a full refresh now"
+          >
+            {refreshing ? '...' : 'Refresh'}
+          </button>
+        )}
         <button
           onClick={handleDisconnect}
           disabled={deleting}
@@ -74,3 +125,4 @@ export function ConnectorCard({ connector }: { connector: Connector }) {
     </div>
   );
 }
+
