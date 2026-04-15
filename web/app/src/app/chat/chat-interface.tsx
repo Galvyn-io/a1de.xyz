@@ -4,6 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/toast';
+import { useConfirm } from '@/components/confirm-dialog';
 import type { UserProfile, Conversation, Message } from '@/lib/supabase/types';
 import { NowPanel } from './now-panel';
 
@@ -32,6 +34,8 @@ export function ChatInterface({
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
   const messageCache = useRef<Map<string, Message[]>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -115,14 +119,18 @@ export function ChatInterface({
       return;
     }
 
-    const token = await getToken();
-    const res = await fetch(`${BACKEND_URL}/chat/conversations/${conversationId}/messages`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
+    try {
+      const token = await getToken();
+      const res = await fetch(`${BACKEND_URL}/chat/conversations/${conversationId}/messages`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
       messageCache.current.set(conversationId, data.messages);
       setMessages(data.messages);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast(`Failed to load messages: ${msg}`, 'error');
     }
   }
 
@@ -140,13 +148,17 @@ export function ChatInterface({
   }
 
   async function refreshConversations() {
-    const token = await getToken();
-    const res = await fetch(`${BACKEND_URL}/chat/conversations`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
+    try {
+      const token = await getToken();
+      const res = await fetch(`${BACKEND_URL}/chat/conversations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       const data = await res.json();
       setConversations(data.conversations);
+    } catch (err) {
+      console.error('Failed to refresh conversations:', err);
+      // Silent — stale sidebar is better than spamming user with toasts
     }
   }
 
@@ -170,17 +182,32 @@ export function ChatInterface({
   }
 
   async function deleteConversation(id: string) {
-    if (!confirm('Delete this conversation?')) return;
-    const token = await getToken();
-    await fetch(`${BACKEND_URL}/chat/conversations/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+    const conv = conversations.find((c) => c.id === id);
+    const ok = await confirm({
+      title: 'Delete this conversation?',
+      message: conv?.title ? `"${conv.title}" will be permanently deleted.` : 'This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
     });
-    messageCache.current.delete(id);
-    setConversations((prev) => prev.filter((c) => c.id !== id));
-    if (activeId === id) {
-      setActiveId(null);
-      setMessages([]);
+    if (!ok) return;
+
+    try {
+      const token = await getToken();
+      const res = await fetch(`${BACKEND_URL}/chat/conversations/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      messageCache.current.delete(id);
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (activeId === id) {
+        setActiveId(null);
+        setMessages([]);
+      }
+      toast('Conversation deleted', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast(`Failed to delete: ${msg}`, 'error');
     }
   }
 
@@ -381,14 +408,16 @@ export function ChatInterface({
                     <div className="flex shrink-0 opacity-0 group-hover:opacity-100">
                       <button
                         onClick={(e) => { e.stopPropagation(); setEditingId(c.id); setEditTitle(c.title ?? ''); }}
-                        className="px-1.5 py-2 text-xs text-fg-subtle hover:text-fg"
+                        className="px-1.5 py-2 text-xs text-fg-subtle hover:text-fg focus:outline focus:outline-1 focus:outline-accent"
+                        aria-label={`Rename conversation ${c.title ?? 'Untitled'}`}
                         title="Rename"
                       >
                         ✎
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); deleteConversation(c.id); }}
-                        className="px-1.5 py-2 text-xs text-fg-subtle hover:text-error"
+                        className="px-1.5 py-2 text-xs text-fg-subtle hover:text-error focus:outline focus:outline-1 focus:outline-error"
+                        aria-label={`Delete conversation ${c.title ?? 'Untitled'}`}
                         title="Delete"
                       >
                         ✕
@@ -427,6 +456,7 @@ export function ChatInterface({
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="text-fg-muted hover:text-fg md:hidden"
+            aria-label="Toggle conversation sidebar"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
               <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
@@ -564,6 +594,7 @@ export function ChatInterface({
             <button
               onClick={() => setNowOpen(false)}
               className="text-xs text-fg-subtle hover:text-fg"
+              aria-label="Close Now panel"
               title="Close (⌘.)"
             >
               ✕

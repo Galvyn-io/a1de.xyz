@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/toast';
+import { useConfirm } from '@/components/confirm-dialog';
 import type { Connector } from '@/lib/supabase/types';
 import { PROVIDER_META } from '@/lib/connectors';
 
@@ -12,20 +14,34 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 export function ConnectorCard({ connector }: { connector: Connector }) {
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   const handleDisconnect = async () => {
-    if (!confirm(`Disconnect "${connector.label}"?`)) return;
-    setDeleting(true);
-
-    const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    await fetch(`${BACKEND_URL}/connectors/${connector.id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${session?.access_token}` },
+    const ok = await confirm({
+      title: `Disconnect "${connector.label}"?`,
+      message: 'This removes the connection and any stored credentials. You can reconnect anytime.',
+      confirmLabel: 'Disconnect',
+      variant: 'danger',
     });
+    if (!ok) return;
 
-    router.refresh();
+    setDeleting(true);
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`${BACKEND_URL}/connectors/${connector.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
+      toast('Connector disconnected', 'success');
+      router.refresh();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast(`Failed to disconnect: ${msg}`, 'error');
+      setDeleting(false);
+    }
   };
 
   const statusVariant: 'success' | 'error' | 'default' =
@@ -49,7 +65,8 @@ export function ConnectorCard({ connector }: { connector: Connector }) {
         <button
           onClick={handleDisconnect}
           disabled={deleting}
-          className="text-xs text-fg-subtle opacity-0 transition-opacity hover:text-error group-hover:opacity-100 disabled:opacity-50"
+          aria-label={`Disconnect ${connector.label}`}
+          className="text-xs text-fg-subtle opacity-0 transition-opacity hover:text-error focus:outline focus:outline-1 focus:outline-accent focus:opacity-100 group-hover:opacity-100 disabled:opacity-50"
         >
           {deleting ? '...' : 'Disconnect'}
         </button>

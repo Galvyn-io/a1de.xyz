@@ -1,3 +1,22 @@
+/**
+ * Background memory extraction.
+ *
+ * After each chat turn (user message + assistant response), we send the
+ * exchange to Claude Haiku to extract facts the user revealed. This is the
+ * "Level 2" pattern from the memory design doc: implicit extraction without
+ * requiring the user to say "remember this".
+ *
+ * Trade-offs:
+ * - Haiku is cheap and fast, so running it on every turn has acceptable cost.
+ * - We pass the user's existing always-inject memories to avoid duplicates.
+ * - Extraction failures are logged but don't surface to the user — a silent
+ *   background process should fail silently.
+ * - Runs via the tasks system (see tasks/handlers/memory-extract.ts) so it
+ *   shows up on /tasks for observability and can be retried on failure.
+ *
+ * Langfuse traces every extraction with the `memory-extraction` tag so we can
+ * review quality and tune the prompt.
+ */
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config.js';
 import { addMemory, getAlwaysInjectMemories } from './db.js';
@@ -39,6 +58,13 @@ interface ExtractedFact {
   entities?: string[];
 }
 
+/**
+ * Extract and save memories from a single conversation turn.
+ *
+ * Called from the `memory.extract` task handler after each chat reply.
+ * Never throws — errors are logged and swallowed so background extraction
+ * never breaks the foreground chat experience.
+ */
 export async function extractMemoriesFromConversation(params: {
   userId: string;
   conversationId: string;

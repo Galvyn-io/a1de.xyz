@@ -11,7 +11,7 @@ A1DE (formerly "Jarvis") is a personal family AI assistant. Monorepo with Next.j
 - **Telemetry:** Langfuse via OpenTelemetry (traces all Claude calls with user/session context)
 - **Design system:** [@galvyn-io/design](https://www.npmjs.com/package/@galvyn-io/design) — dark-first monotone with surgical accent. Accent hue set to `180` (teal). Components: Button, Card, Badge, Input, FilterToggle, Kbd, GradientBorder.
 
-## Current state (Phase 0 complete, Phase 1 in progress)
+## Current state (Phase 1 mostly complete)
 
 **What's built:**
 - Google OAuth login + registration flow (Supabase Auth)

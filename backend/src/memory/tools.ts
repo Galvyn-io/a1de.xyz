@@ -1,3 +1,18 @@
+/**
+ * Claude tools for reading and writing the user's memory.
+ *
+ * These tools are exposed to the LLM via the tool-use API (see chat/router.ts).
+ * The descriptions ARE the contract the model reads to decide when to call them —
+ * they're prompt engineering as much as documentation.
+ *
+ * Design choices:
+ * - `search_memory` is read-only and synchronous (< 1s), so we don't need the
+ *   async task system for it.
+ * - `save_fact` is also synchronous — memories should be durable immediately
+ *   after the user mentions them, not eventually-consistent.
+ * - `always_inject` is exposed as a tool-level boolean so the model can decide
+ *   "this is core identity (allergies, key people)" vs "this is situational".
+ */
 import type Anthropic from '@anthropic-ai/sdk';
 import { hybridSearch } from './search.js';
 import { addMemory } from './db.js';

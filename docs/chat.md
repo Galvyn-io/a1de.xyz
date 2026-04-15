@@ -67,9 +67,25 @@ RLS: users can SELECT/INSERT their own rows. Admins can SELECT all.
 
 ## Frontend
 
-- `/chat` — Main chat interface with conversation sidebar
+- `/chat` — Main chat interface. Three columns: left = conversation sidebar, middle = messages, right = "Now" panel (active tasks + recent memories, toggled with ⌘.)
 - `/chat/[id]` — Deep link to specific conversation
 - Streaming via `fetch` + `ReadableStream` (supports auth headers, unlike `EventSource`)
+- Realtime: subscribes to Supabase Postgres changes on `messages` for the active conversation, so task-generated messages appear live
+- ⌘K opens a global command palette (see `web/app/src/components/command-palette.tsx`)
+
+## Tools available to Claude
+
+Defined in `backend/src/chat/router.ts`'s `ALL_TOOLS`:
+
+| Tool | Purpose |
+|---|---|
+| `search_memory` | Hybrid vector + full-text search over the user's knowledge graph |
+| `save_fact` | Explicitly save a fact or preference |
+| `search_golf_courses` | Find courses via GolfCourseAPI |
+| `check_tee_times_at_course` | Start a Skyvern task to scrape a course's booking site |
+| `book_tee_time` | Start a Skyvern task to book a specific tee time |
+| `check_task_status` | Get the status/result of any background task by task_id |
+| `web_search` | Anthropic's native web search (real-time info) |
 
 ## Telemetry
 

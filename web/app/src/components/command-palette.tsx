@@ -80,6 +80,9 @@ export function CommandPalette() {
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm"
       onClick={() => setOpen(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Command palette"
     >
       <div
         className="mt-24 w-full max-w-lg overflow-hidden rounded-xl border border-border-strong bg-surface shadow-2xl"
@@ -91,6 +94,7 @@ export function CommandPalette() {
           onChange={(e) => { setQuery(e.target.value); setActiveIndex(0); }}
           onKeyDown={handleKeyDown}
           placeholder="Type a command or search..."
+          aria-label="Command palette search"
           className="w-full border-b border-border bg-transparent px-4 py-3 text-sm outline-none placeholder:text-fg-subtle"
         />
         <div className="max-h-80 overflow-y-auto p-1.5">

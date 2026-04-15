@@ -193,7 +193,8 @@ export function NowPanel({ userId }: { userId: string }) {
                   <p className="text-xs leading-relaxed">{m.content}</p>
                   <button
                     onClick={() => deleteMemory(m.id)}
-                    className="shrink-0 text-[10px] text-fg-subtle opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
+                    aria-label="Forget this memory"
+                    className="shrink-0 text-[10px] text-fg-subtle opacity-0 transition-opacity hover:text-error focus:outline focus:outline-1 focus:outline-error focus:opacity-100 group-hover:opacity-100"
                     title="Forget"
                   >
                     ✕

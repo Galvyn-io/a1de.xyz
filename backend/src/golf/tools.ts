@@ -82,16 +82,16 @@ export const GOLF_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: 'get_task_status',
+    name: 'check_task_status',
     description:
-      'Get the current status of a task (by task_id). Only call this if the user explicitly asks about a task. ' +
-      'Normally, task results auto-appear in the chat when done — you do NOT need to poll.',
+      'Check the current status and result of any background task (golf, memory, etc.) by its task_id. ' +
+      'Only call this if the user explicitly asks about a task — completed task results automatically appear in the chat, so polling is usually unnecessary.',
     input_schema: {
       type: 'object' as const,
       properties: {
         task_id: {
           type: 'string',
-          description: 'The internal task ID (UUID)',
+          description: 'The internal task ID (UUID) from a previous tool call',
         },
       },
       required: ['task_id'],
@@ -192,7 +192,7 @@ export async function executeGolfTool(
           `Running in the background. Confirmation will appear in the chat when complete (~2-3 min).`;
       }
 
-      case 'get_task_status': {
+      case 'check_task_status': {
         const params = input as GetTaskStatusInput;
         const task = await getTaskForUser(params.task_id, userId);
         if (!task) return `Task ${params.task_id} not found.`;

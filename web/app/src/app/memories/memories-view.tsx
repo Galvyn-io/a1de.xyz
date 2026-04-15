@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Badge, FilterToggle } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/toast';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
@@ -42,6 +43,7 @@ export function MemoriesView() {
   const [selectedEntity, setSelectedEntity] = useState<string | null>(null);
   const [entityMemories, setEntityMemories] = useState<Memory[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   async function getToken() {
     const supabase = createClient();
@@ -74,14 +76,19 @@ export function MemoriesView() {
   }
 
   async function deleteMemory(id: string) {
-    const token = await getToken();
-    const res = await fetch(`${BACKEND_URL}/memories/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
+    try {
+      const token = await getToken();
+      const res = await fetch(`${BACKEND_URL}/memories/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`Server returned ${res.status}`);
       setMemories((prev) => prev.filter((m) => m.id !== id));
       setEntityMemories((prev) => prev.filter((m) => m.id !== id));
+      toast('Memory removed', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      toast(`Failed to remove memory: ${msg}`, 'error');
     }
   }
 
@@ -101,28 +108,38 @@ export function MemoriesView() {
     loadData();
   }, []);
 
-  // Group memories by category
-  const grouped = memories.reduce<Record<string, Memory[]>>((acc, m) => {
-    const cat = m.category ?? 'other';
-    (acc[cat] ??= []).push(m);
-    return acc;
-  }, {});
+  // Memoize grouping — avoids recomputing on every render
+  const grouped = useMemo(
+    () =>
+      memories.reduce<Record<string, Memory[]>>((acc, m) => {
+        const cat = m.category ?? 'other';
+        (acc[cat] ??= []).push(m);
+        return acc;
+      }, {}),
+    [memories],
+  );
 
-  const sortedCategories = [
-    ...CATEGORY_ORDER.filter((c) => grouped[c]),
-    ...Object.keys(grouped).filter((c) => !CATEGORY_ORDER.includes(c)),
-  ];
+  const sortedCategories = useMemo(
+    () => [
+      ...CATEGORY_ORDER.filter((c) => grouped[c]),
+      ...Object.keys(grouped).filter((c) => !CATEGORY_ORDER.includes(c)),
+    ],
+    [grouped],
+  );
 
-  // Group entities by type
-  const entityGroups = entities.reduce<Record<string, Entity[]>>((acc, e) => {
-    (acc[e.type] ??= []).push(e);
-    return acc;
-  }, {});
+  const entityGroups = useMemo(
+    () =>
+      entities.reduce<Record<string, Entity[]>>((acc, e) => {
+        (acc[e.type] ??= []).push(e);
+        return acc;
+      }, {}),
+    [entities],
+  );
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-zinc-500">Loading memories...</p>
+        <p className="text-fg-muted">Loading memories...</p>
       </div>
     );
   }
@@ -182,7 +199,8 @@ export function MemoriesView() {
                     </div>
                     <button
                       onClick={() => deleteMemory(m.id)}
-                      className="ml-3 shrink-0 text-xs text-fg-subtle opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
+                      className="ml-3 shrink-0 text-xs text-fg-subtle opacity-0 transition-opacity hover:text-error focus:outline focus:outline-1 focus:outline-error focus:opacity-100 group-hover:opacity-100"
+                      aria-label="Delete this memory"
                       title="Delete memory"
                     >
                       ✕
@@ -196,9 +214,9 @@ export function MemoriesView() {
       )}
 
       {activeTab === 'entities' && (
-        <div className="flex gap-6">
+        <div className="flex flex-col gap-6 md:flex-row">
           {/* Entity list */}
-          <div className="w-64 shrink-0">
+          <div className="md:w-64 md:shrink-0">
             {Object.entries(entityGroups).map(([type, ents]) => (
               <div key={type} className="mb-6">
                 <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">
@@ -253,7 +271,8 @@ export function MemoriesView() {
                     </div>
                     <button
                       onClick={() => deleteMemory(m.id)}
-                      className="ml-3 shrink-0 text-xs text-fg-subtle opacity-0 transition-opacity hover:text-error group-hover:opacity-100"
+                      className="ml-3 shrink-0 text-xs text-fg-subtle opacity-0 transition-opacity hover:text-error focus:outline focus:outline-1 focus:outline-error focus:opacity-100 group-hover:opacity-100"
+                      aria-label="Delete this memory"
                     >
                       ✕
                     </button>

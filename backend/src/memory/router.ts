@@ -1,3 +1,13 @@
+/**
+ * HTTP routes for the memory management UI (/memories page).
+ *
+ * These endpoints power the user-facing memory browser — list, delete,
+ * explore entities. They are NOT the tools Claude uses during chat; those
+ * are in memory/tools.ts and go through the tool-use API.
+ *
+ * Auth: all endpoints require a valid Supabase JWT (Bearer token). Each handler
+ * scopes queries to the caller's user_id explicitly.
+ */
 import { Hono } from 'hono';
 import { createClient } from '@supabase/supabase-js';
 import type { User } from '@supabase/supabase-js';
