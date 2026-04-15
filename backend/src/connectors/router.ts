@@ -71,13 +71,17 @@ connectors.get('/google/callback', async (c) => {
       label: state.label || tokens.email,
     });
 
-    // If they connected a calendar, kick off an immediate backfill so the
-    // Now panel / /tasks shows activity right away.
-    if (state.provider === 'google_calendar') {
+    // Kick off an immediate backfill so the Now panel / /tasks shows activity
+    // right away. Only for providers with a known ingestion pipeline.
+    const backfillTaskType =
+      state.provider === 'google_calendar' ? 'calendar.sync' :
+      state.provider === 'gmail' ? 'email.sync' :
+      null;
+    if (backfillTaskType) {
       const { createTask } = await import('../tasks/index.js');
       await createTask({
         userId: state.userId,
-        type: 'calendar.sync',
+        type: backfillTaskType,
         input: { connectorId: connector.id, backfill: true },
       });
     }

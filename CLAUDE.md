@@ -34,6 +34,9 @@ A1DE (formerly "Jarvis") is a personal family AI assistant. Monorepo with Next.j
 - Web search tool: Claude's native `web_search_20250305` for real-time info
 - Database: `user_profiles`, `connectors`, `connector_credentials`, `conversations`, `messages`, `entities`, `memories`, `entity_relations`, `memory_entities`, `health_metrics`, `schedules`, `tasks` tables with RLS
 
+- Google Calendar ingestion: events table, hourly incremental sync, `get_calendar_events` tool
+- Gmail ingestion: aggressive Haiku classifier (batches of 20), route to discard/structured (events table) / semantic (memory extraction). Backfill 50 days + replies, hourly incremental via Gmail history API.
+
 **What's NOT built yet:**
 - Connector ingestion (Gmail/Calendar → memories)
 - Health metrics connector (Apple Health/Whoop → health_metrics table)

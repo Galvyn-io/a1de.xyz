@@ -154,10 +154,10 @@ export async function getActiveCalendarConnector(userId: string): Promise<{
 }
 
 /**
- * Find all users with an active calendar connector. Used by the hourly tick
- * to decide who needs a sync task.
+ * Generic: find all users with an active connector of a given provider.
+ * Used by the hourly tick to decide who needs a sync task.
  */
-export async function listUsersWithCalendarConnector(): Promise<Array<{
+export async function listUsersWithConnector(provider: string): Promise<Array<{
   user_id: string;
   id: string;
   credential_id: string;
@@ -166,9 +166,14 @@ export async function listUsersWithCalendarConnector(): Promise<Array<{
   const { data, error } = await db
     .from('connectors')
     .select('id, user_id, credential_id')
-    .eq('provider', 'google_calendar')
+    .eq('provider', provider)
     .eq('status', 'active')
     .returns<Array<{ id: string; user_id: string; credential_id: string }>>();
   if (error) throw error;
   return data ?? [];
+}
+
+// Backwards-compatible alias
+export async function listUsersWithCalendarConnector() {
+  return listUsersWithConnector('google_calendar');
 }

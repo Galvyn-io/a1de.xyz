@@ -38,19 +38,30 @@ The channel's pipeline decides which bucket a given item goes into.
 
 **Memory extraction from calendar**: deferred. The structured events are what Claude queries. Future phase will extract memories from patterns (recurring events → "plays tennis Saturdays", birthdays → relationships).
 
-### Email (planned)
+### Gmail (implemented)
 
 **Strategy**: aggressive filtering. Most email is promos, notifications, receipts. Only a small fraction deserves semantic extraction.
 
 **Pipeline** (per email):
-1. Classify using Haiku (subject + sender + first 200 chars, batched 20 at a time)
-2. Route by class:
-   - `promo`, `notification`, `newsletter` → discard
-   - `receipt`, `bill`, `travel` → structured record in purpose-built tables
-   - `personal`, `work_important` → semantic extraction like chat
+1. Fetch metadata only (subject + sender + snippet). Never pull full bodies.
+2. Classify with Haiku, batched 20 at a time. Categories:
+   - **Discard**: `promo`, `notification`, `newsletter`, `social`, `unknown`
+   - **Structured**: `receipt`, `bill`, `travel`, `appointment` → events table with `source: gmail_<class>`
+   - **Semantic**: `personal`, `work` → extract facts to memories table
+3. For structured emails: extract date, title, vendor, amount with Haiku → upsert to events
+4. For semantic emails: extract durable facts about the user with Haiku → save to memories
 
-**Backfill**: last 50 days + all replies to those threads
-**Incremental**: hourly via Gmail history API
+**Sync modes**:
+- **Backfill** (on connect): last 50 days excluding promotions/spam, PLUS every message in threads the user has replied to in the last 30 days. Persists Gmail's `historyId` as the starting point for incremental.
+- **Incremental** (hourly tick): `history.list` since last `historyId`. If Gmail's history has expired (~7 days), falls back to a 7-day backfill.
+
+**Files**:
+- `backend/src/ingestion/gmail.ts` — REST client
+- `backend/src/ingestion/email-classifier.ts` — Haiku batch classifier
+- `backend/src/ingestion/email-extractor.ts` — structured + semantic extractors
+- `backend/src/tasks/handlers/email-sync.ts` — task handler
+
+**Cost profile**: Haiku classifier is cheap (~$0.25 per 10k emails). We batch 20 at a time so a 2000-email backfill is ~100 Haiku calls total.
 
 ### Other channels (future)
 

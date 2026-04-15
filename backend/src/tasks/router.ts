@@ -5,7 +5,7 @@ import { config } from '../config.js';
 import { listTasks, getTaskForUser } from './db.js';
 import { pollRunningTasks, createTask } from './runner.js';
 import type { TaskStatus } from './types.js';
-import { listUsersWithCalendarConnector } from '../ingestion/events-db.js';
+import { listUsersWithConnector } from '../ingestion/events-db.js';
 
 type AuthEnv = { Variables: { user: User } };
 
@@ -59,37 +59,56 @@ tasks.post('/tick', async (c) => {
     return c.json({ error: 'unauthorized' }, 401);
   }
 
-  const results = { calendar_sync_created: 0, calendar_sync_skipped: 0 };
-  const calendarConnectors = await listUsersWithCalendarConnector();
+  const results = {
+    calendar_sync_created: 0, calendar_sync_skipped: 0,
+    email_sync_created: 0, email_sync_skipped: 0,
+  };
 
   const { createClient } = await import('@supabase/supabase-js');
   const db = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
 
-  for (const connector of calendarConnectors) {
-    // Skip if there's already a recent sync task for this connector
-    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-    const { data: recent } = await db
-      .from('tasks')
-      .select('id')
-      .eq('user_id', connector.user_id)
-      .eq('type', 'calendar.sync')
-      .eq('input->>connectorId', connector.id)
-      .gte('created_at', thirtyMinAgo)
-      .in('status', ['pending', 'running', 'completed'])
-      .limit(1);
+  // Generic helper: create a sync task for each active connector of a given
+  // provider, skipping if a recent task already exists.
+  async function scheduleSyncForProvider(
+    provider: string,
+    taskType: string,
+    cooldownMs = 30 * 60 * 1000,
+  ): Promise<{ created: number; skipped: number }> {
+    const out = { created: 0, skipped: 0 };
+    const connectors = await listUsersWithConnector(provider);
+    const cutoff = new Date(Date.now() - cooldownMs).toISOString();
 
-    if (recent && recent.length > 0) {
-      results.calendar_sync_skipped++;
-      continue;
+    for (const connector of connectors) {
+      const { data: recent } = await db
+        .from('tasks')
+        .select('id')
+        .eq('user_id', connector.user_id)
+        .eq('type', taskType)
+        .eq('input->>connectorId', connector.id)
+        .gte('created_at', cutoff)
+        .in('status', ['pending', 'running', 'completed'])
+        .limit(1);
+      if (recent && recent.length > 0) {
+        out.skipped++;
+        continue;
+      }
+      await createTask({
+        userId: connector.user_id,
+        type: taskType,
+        input: { connectorId: connector.id },
+      });
+      out.created++;
     }
-
-    await createTask({
-      userId: connector.user_id,
-      type: 'calendar.sync',
-      input: { connectorId: connector.id },
-    });
-    results.calendar_sync_created++;
+    return out;
   }
+
+  const cal = await scheduleSyncForProvider('google_calendar', 'calendar.sync', 30 * 60 * 1000);
+  results.calendar_sync_created = cal.created;
+  results.calendar_sync_skipped = cal.skipped;
+
+  const email = await scheduleSyncForProvider('gmail', 'email.sync', 50 * 60 * 1000);
+  results.email_sync_created = email.created;
+  results.email_sync_skipped = email.skipped;
 
   return c.json(results);
 });
