@@ -9,6 +9,7 @@ import { buildSystemPrompt, buildMessages, callClaude, streamClaude } from './cl
 import { langfuse } from '../telemetry.js';
 import { MEMORY_TOOLS, executeTool as executeMemoryTool } from '../memory/tools.js';
 import { GOLF_TOOLS, executeGolfTool } from '../golf/tools.js';
+import { INGESTION_TOOLS, executeIngestionTool } from '../ingestion/tools.js';
 import { getAlwaysInjectMemories } from '../memory/db.js';
 import { createTask } from '../tasks/index.js';
 
@@ -19,13 +20,17 @@ const WEB_SEARCH_TOOL = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ALL_TOOLS: any[] = [...MEMORY_TOOLS, ...GOLF_TOOLS, WEB_SEARCH_TOOL];
+const ALL_TOOLS: any[] = [...MEMORY_TOOLS, ...GOLF_TOOLS, ...INGESTION_TOOLS, WEB_SEARCH_TOOL];
 
 const GOLF_TOOL_NAMES = new Set(GOLF_TOOLS.map((t) => t.name));
+const INGESTION_TOOL_NAMES = new Set(INGESTION_TOOLS.map((t) => t.name));
 
 async function executeTool(name: string, input: unknown, userId: string, conversationId?: string): Promise<string> {
   if (GOLF_TOOL_NAMES.has(name)) {
     return executeGolfTool(name, input, userId, conversationId);
+  }
+  if (INGESTION_TOOL_NAMES.has(name)) {
+    return executeIngestionTool(name, input, userId);
   }
   return executeMemoryTool(name, input, userId);
 }

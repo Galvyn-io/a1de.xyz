@@ -296,6 +296,7 @@ export function ChatInterface({
               const toolName = event.tool_call.name;
               const label = toolName === 'search_memory' ? 'Searching memory...'
                 : toolName === 'save_fact' ? 'Saving to memory...'
+                : toolName === 'get_calendar_events' ? 'Checking your calendar...'
                 : toolName === 'search_golf_courses' ? 'Searching golf courses...'
                 : toolName === 'web_search' ? 'Searching the web...'
                 : toolName === 'check_tee_times_at_course' ? 'Starting tee time check...'

@@ -63,13 +63,24 @@ connectors.get('/google/callback', async (c) => {
       expiresAt: tokens.expiresAt,
     });
 
-    await createConnector({
+    const connector = await createConnector({
       userId: state.userId,
       credentialId: credential.id,
       type: state.type,
       provider: state.provider,
       label: state.label || tokens.email,
     });
+
+    // If they connected a calendar, kick off an immediate backfill so the
+    // Now panel / /tasks shows activity right away.
+    if (state.provider === 'google_calendar') {
+      const { createTask } = await import('../tasks/index.js');
+      await createTask({
+        userId: state.userId,
+        type: 'calendar.sync',
+        input: { connectorId: connector.id, backfill: true },
+      });
+    }
 
     return c.redirect(`${config.FRONTEND_URL}/connectors?success=true`);
   } catch (err) {

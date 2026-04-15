@@ -112,13 +112,15 @@ infra/sql/
 ├── 002_connectors.sql        # connectors + connector_credentials tables, RLS
 ├── 003_conversations.sql     # conversations + messages tables, RLS
 ├── 004_memory.sql            # entities, memories, relations, health, schedules, hybrid_search
-└── 005_tasks.sql             # tasks table + realtime publication
+├── 005_tasks.sql             # tasks table + realtime publication
+└── 006_events.sql            # events table + connector sync_cursor column
 
 docs/
 ├── auth.md                   # Authentication architecture
 ├── chat.md                   # Chat system + tool-use loop
 ├── connectors.md             # Connector system architecture
 ├── deployment.md             # Vercel + Cloud Run + Vertex AI + Cloud Scheduler
+├── ingestion.md              # Per-channel data ingestion strategy
 ├── memory.md                 # Memory system (knowledge graph, hybrid search, tools)
 └── tasks.md                  # Unified async task system
 ```
