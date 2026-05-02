@@ -61,7 +61,7 @@ describe('sleepsToMetrics', () => {
   it('skips naps and computes hours from in-bed minus awake', () => {
     const rows = sleepsToMetrics([
       {
-        id: 1, user_id: 1,
+        id: 'sleep-uuid-1', user_id: 1,
         created_at: '2026-05-01T07:00:00Z', updated_at: '2026-05-01T07:00:00Z',
         start: '2026-04-30T23:00:00Z', end: '2026-05-01T07:00:00Z',
         timezone_offset: '-07:00', nap: false, score_state: 'SCORED',
@@ -80,7 +80,7 @@ describe('sleepsToMetrics', () => {
         },
       },
       {
-        id: 2, user_id: 1,
+        id: 'sleep-uuid-2', user_id: 1,
         created_at: '2026-05-01T15:00:00Z', updated_at: '2026-05-01T15:00:00Z',
         start: '2026-05-01T14:00:00Z', end: '2026-05-01T15:00:00Z',
         timezone_offset: '-07:00', nap: true, score_state: 'SCORED',
@@ -128,7 +128,7 @@ describe('workoutsToMetrics', () => {
   it('records strain on workout end timestamp', () => {
     const rows = workoutsToMetrics([
       {
-        id: 1, user_id: 1,
+        id: 'workout-uuid-1', user_id: 1,
         created_at: '2026-05-01T17:00:00Z', updated_at: '2026-05-01T18:00:00Z',
         start: '2026-05-01T17:00:00Z', end: '2026-05-01T18:00:00Z',
         timezone_offset: '-07:00', sport_id: 0, score_state: 'SCORED',

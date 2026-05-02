@@ -38,7 +38,7 @@ interface WhoopRecovery {
 }
 
 interface WhoopSleep {
-  id: number;
+  id: string;        // UUID in v2 (was integer in v1)
   user_id: number;
   created_at: string;
   updated_at: string;
@@ -84,7 +84,7 @@ interface WhoopCycle {
 }
 
 interface WhoopWorkout {
-  id: number;
+  id: string;        // UUID in v2 (was integer in v1)
   user_id: number;
   created_at: string;
   updated_at: string;
@@ -138,19 +138,19 @@ async function fetchPaginated<T>(params: {
 }
 
 export function fetchRecoveries(params: { credentialId: string; start?: string; end?: string }) {
-  return fetchPaginated<WhoopRecovery>({ ...params, path: '/v1/recovery' });
+  return fetchPaginated<WhoopRecovery>({ ...params, path: '/v2/recovery' });
 }
 
 export function fetchSleeps(params: { credentialId: string; start?: string; end?: string }) {
-  return fetchPaginated<WhoopSleep>({ ...params, path: '/v1/activity/sleep' });
+  return fetchPaginated<WhoopSleep>({ ...params, path: '/v2/activity/sleep' });
 }
 
 export function fetchCycles(params: { credentialId: string; start?: string; end?: string }) {
-  return fetchPaginated<WhoopCycle>({ ...params, path: '/v1/cycle' });
+  return fetchPaginated<WhoopCycle>({ ...params, path: '/v2/cycle' });
 }
 
 export function fetchWorkouts(params: { credentialId: string; start?: string; end?: string }) {
-  return fetchPaginated<WhoopWorkout>({ ...params, path: '/v1/activity/workout' });
+  return fetchPaginated<WhoopWorkout>({ ...params, path: '/v2/activity/workout' });
 }
 
 /**

@@ -14,7 +14,7 @@ import { getCredential, updateCredentialTokens } from './db.js';
 
 const WHOOP_AUTH_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';
 const WHOOP_TOKEN_URL = 'https://api.prod.whoop.com/oauth/oauth2/token';
-const WHOOP_PROFILE_URL = 'https://api.prod.whoop.com/developer/v1/user/profile/basic';
+const WHOOP_PROFILE_URL = 'https://api.prod.whoop.com/developer/v2/user/profile/basic';
 
 const stateSecret = new TextEncoder().encode(config.OAUTH_STATE_SECRET);
 
