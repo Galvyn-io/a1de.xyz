@@ -102,7 +102,8 @@ web/app/
 │   │   ├── register/         # Choose assistant name
 │   │   ├── dashboard/        # Protected dashboard
 │   │   ├── chat/             # Chat UI (streaming, conversation sidebar, realtime messages)
-│   │   ├── memories/         # Memory browser (list/delete facts and entities)
+│   │   ├── memories/         # Memory browser (list/delete facts, entities, relations)
+│   │   ├── insights/         # "What's new" activity dashboard (last 7 days, by source)
 │   │   ├── tasks/            # Tasks dashboard (live status via Supabase realtime)
 │   │   ├── connectors/       # List, add, manage connectors
 │   │   ├── admin/            # Admin-only user list

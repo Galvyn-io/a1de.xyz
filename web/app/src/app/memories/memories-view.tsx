@@ -25,6 +25,17 @@ interface Entity {
   created_at: string;
 }
 
+interface RelationLeg {
+  id: string;
+  predicate: string;
+  entities: { name: string; type: string } | null;
+}
+
+interface RelationsPayload {
+  outgoing: Array<RelationLeg & { object_id: string }>;
+  incoming: Array<RelationLeg & { subject_id: string }>;
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   preference: 'Preferences',
   person: 'People',
@@ -42,6 +53,7 @@ export function MemoriesView() {
   const [activeTab, setActiveTab] = useState<'memories' | 'entities'>('memories');
   const [selectedEntity, setSelectedEntity] = useState<string | null>(null);
   const [entityMemories, setEntityMemories] = useState<Memory[]>([]);
+  const [entityRelations, setEntityRelations] = useState<RelationsPayload>({ outgoing: [], incoming: [] });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -95,12 +107,23 @@ export function MemoriesView() {
   async function selectEntity(id: string) {
     setSelectedEntity(id);
     const token = await getToken();
-    const res = await fetch(`${BACKEND_URL}/memories/entities/${id}/memories`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
-      const data = await res.json();
+    const [memRes, relRes] = await Promise.all([
+      fetch(`${BACKEND_URL}/memories/entities/${id}/memories`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      fetch(`${BACKEND_URL}/memories/entities/${id}/relations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    ]);
+    if (memRes.ok) {
+      const data = await memRes.json();
       setEntityMemories(data.memories);
+    }
+    if (relRes.ok) {
+      const data = (await relRes.json()) as RelationsPayload;
+      setEntityRelations(data);
+    } else {
+      setEntityRelations({ outgoing: [], incoming: [] });
     }
   }
 
@@ -249,39 +272,77 @@ export function MemoriesView() {
           </div>
 
           {/* Entity detail */}
-          <div className="flex-1">
+          <div className="flex-1 space-y-6">
             {selectedEntity ? (
-              <div className="space-y-2">
-                <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-subtle">
-                  Related memories
-                </h3>
-                {entityMemories.length === 0 && (
-                  <p className="text-sm text-fg-subtle">No linked memories.</p>
-                )}
-                {entityMemories.map((m) => (
-                  <div
-                    key={m.id}
-                    className="group flex items-start justify-between rounded-lg border border-border bg-surface px-4 py-3 transition-colors hover:border-border-strong"
-                  >
-                    <div>
-                      <p className="text-sm">{m.content}</p>
-                      <span className="text-xs text-fg-subtle">
-                        {m.source ?? 'chat'} · {new Date(m.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => deleteMemory(m.id)}
-                      className="ml-3 shrink-0 text-xs text-fg-subtle opacity-0 transition-opacity hover:text-error focus:outline focus:outline-1 focus:outline-error focus:opacity-100 group-hover:opacity-100"
-                      aria-label="Delete this memory"
-                    >
-                      ✕
-                    </button>
+              <>
+                {(entityRelations.outgoing.length > 0 || entityRelations.incoming.length > 0) && (
+                  <div>
+                    <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-subtle">
+                      Relations
+                    </h3>
+                    <ul className="space-y-1">
+                      {entityRelations.outgoing.map((r) => (
+                        <li key={r.id} className="text-sm">
+                          <span className="text-fg-muted">→</span>{' '}
+                          <span className="text-fg-subtle italic">{r.predicate}</span>{' '}
+                          <span className="font-medium">{r.entities?.name ?? '(unknown)'}</span>
+                          {r.entities?.type && (
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wider text-fg-subtle">
+                              {r.entities.type}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                      {entityRelations.incoming.map((r) => (
+                        <li key={r.id} className="text-sm">
+                          <span className="font-medium">{r.entities?.name ?? '(unknown)'}</span>{' '}
+                          <span className="text-fg-subtle italic">{r.predicate}</span>{' '}
+                          <span className="text-fg-muted">→</span>
+                          {r.entities?.type && (
+                            <span className="ml-1.5 text-[10px] uppercase tracking-wider text-fg-subtle">
+                              {r.entities.type}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                ))}
-              </div>
+                )}
+
+                <div>
+                  <h3 className="mb-3 text-xs font-medium uppercase tracking-wider text-fg-subtle">
+                    Related memories
+                  </h3>
+                  {entityMemories.length === 0 && (
+                    <p className="text-sm text-fg-subtle">No linked memories.</p>
+                  )}
+                  <div className="space-y-2">
+                    {entityMemories.map((m) => (
+                      <div
+                        key={m.id}
+                        className="group flex items-start justify-between rounded-lg border border-border bg-surface px-4 py-3 transition-colors hover:border-border-strong"
+                      >
+                        <div>
+                          <p className="text-sm">{m.content}</p>
+                          <span className="text-xs text-fg-subtle">
+                            {m.source ?? 'chat'} · {new Date(m.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => deleteMemory(m.id)}
+                          className="ml-3 shrink-0 text-xs text-fg-subtle opacity-0 transition-opacity hover:text-error focus:outline focus:outline-1 focus:outline-error focus:opacity-100 group-hover:opacity-100"
+                          aria-label="Delete this memory"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="flex h-40 items-center justify-center text-sm text-fg-subtle">
-                Select an entity to see related memories
+                Select an entity to see related memories and relations
               </div>
             )}
           </div>

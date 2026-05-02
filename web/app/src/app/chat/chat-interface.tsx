@@ -8,6 +8,7 @@ import { useToast } from '@/components/toast';
 import { useConfirm } from '@/components/confirm-dialog';
 import type { UserProfile, Conversation, Message } from '@/lib/supabase/types';
 import { NowPanel } from './now-panel';
+import { AssistantMarkdown } from '@/components/assistant-markdown';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
@@ -415,6 +416,7 @@ export function ChatInterface({
           </div>
 
           <div className="border-t border-border p-4 space-y-1.5">
+            <Link href="/insights" className="block text-xs text-fg-subtle hover:text-fg">Insights</Link>
             <Link href="/memories" className="block text-xs text-fg-subtle hover:text-fg">Memory</Link>
             <Link href="/tasks" className="block text-xs text-fg-subtle hover:text-fg">Tasks</Link>
             <Link href="/connectors" className="block text-xs text-fg-subtle hover:text-fg">Connectors</Link>
@@ -497,11 +499,15 @@ export function ChatInterface({
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
                     m.role === 'user'
-                      ? 'bg-accent text-white'
+                      ? 'bg-accent accent-on-bg'
                       : 'bg-surface text-fg border border-border'
                   }`}
                 >
-                  <div className="whitespace-pre-wrap">{m.content}</div>
+                  {m.role === 'assistant' && m.content ? (
+                    <AssistantMarkdown content={m.content} />
+                  ) : (
+                    <div className="whitespace-pre-wrap">{m.content}</div>
+                  )}
                 </div>
               </div>
             ))}
@@ -509,7 +515,9 @@ export function ChatInterface({
             {streaming && streamingContent && (
               <div className="flex justify-start">
                 <div className="max-w-[80%] rounded-2xl bg-surface text-fg border border-border px-4 py-2.5 text-sm">
-                  <div className="whitespace-pre-wrap cursor-blink">{streamingContent}</div>
+                  <div className="cursor-blink">
+                    <AssistantMarkdown content={streamingContent} />
+                  </div>
                 </div>
               </div>
             )}

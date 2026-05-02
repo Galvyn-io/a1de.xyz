@@ -14,6 +14,7 @@ import type { User } from '@supabase/supabase-js';
 import { requireAuth } from '../middleware/auth.js';
 import { config } from '../config.js';
 import { invalidateMemory, type MemoryRow, type EntityRow } from './db.js';
+import { buildActivity, type EventRow, type MemoryRow as ActivityMemoryRow } from './activity.js';
 
 type AuthEnv = { Variables: { user: User } };
 
@@ -79,6 +80,94 @@ memories.get('/entities/:id/memories', requireAuth, async (c) => {
     .filter(Boolean);
 
   return c.json({ memories: linkedMemories });
+});
+
+// Recent relations for an entity (both directions)
+memories.get('/entities/:id/relations', requireAuth, async (c) => {
+  const user = c.get('user');
+  const entityId = c.req.param('id')!;
+  const db = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
+
+  // Verify ownership
+  const { data: entity } = await db
+    .from('entities')
+    .select('id')
+    .eq('id', entityId)
+    .eq('user_id', user.id)
+    .single();
+  if (!entity) return c.json({ error: 'Entity not found' }, 404);
+
+  const { data: outgoing } = await db
+    .from('entity_relations')
+    .select('id, predicate, object_id, entities!entity_relations_object_id_fkey(name, type)')
+    .eq('user_id', user.id)
+    .eq('subject_id', entityId)
+    .is('valid_until', null);
+
+  const { data: incoming } = await db
+    .from('entity_relations')
+    .select('id, predicate, subject_id, entities!entity_relations_subject_id_fkey(name, type)')
+    .eq('user_id', user.id)
+    .eq('object_id', entityId)
+    .is('valid_until', null);
+
+  return c.json({
+    outgoing: outgoing ?? [],
+    incoming: incoming ?? [],
+  });
+});
+
+/**
+ * Activity feed — what got added to the graph in the last N days.
+ *
+ * Returns:
+ *   - buckets: per-day counts by source kind for the last `days` days
+ *     (kind = 'calendar' | 'gmail_structured' | 'memory' | 'banking')
+ *   - totals: cumulative totals across the window
+ *   - recent: a small sample of the most recent items per kind for
+ *     surfacing in the UI
+ *
+ * Why aggregate server-side: the events + memories tables can be large
+ * over time; we don't want to ship every row to the client. The browser
+ * just needs the daily count grid + a recent-items strip.
+ */
+memories.get('/activity', requireAuth, async (c) => {
+  const user = c.get('user');
+  const daysParam = parseInt(c.req.query('days') ?? '7', 10);
+  const days = Math.min(Math.max(daysParam, 1), 30);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const db = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
+
+  // Two cheap parallel queries beat one giant join — events and memories
+  // live in separate tables and the row counts here are small (< few hundred).
+  const [eventsRes, memoriesRes] = await Promise.all([
+    db
+      .from('events')
+      .select('id, title, source, start_at, created_at')
+      .eq('user_id', user.id)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .returns<EventRow[]>(),
+    db
+      .from('memories')
+      .select('id, content, source, category, created_at')
+      .eq('user_id', user.id)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .returns<ActivityMemoryRow[]>(),
+  ]);
+
+  if (eventsRes.error) throw eventsRes.error;
+  if (memoriesRes.error) throw memoriesRes.error;
+
+  return c.json(
+    buildActivity({
+      events: eventsRes.data ?? [],
+      memories: memoriesRes.data ?? [],
+      days,
+      now: new Date(),
+    }),
+  );
 });
 
 // Delete (invalidate) a memory

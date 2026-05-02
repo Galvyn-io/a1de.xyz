@@ -73,3 +73,17 @@ html, body {
   color: var(--galvyn-text-100);
   font-family: var(--galvyn-font-sans);
 }
+
+/*
+ * Accessibility override: the galvyn accent at L=55% with white text fails
+ * WCAG contrast (~1.6:1). Use near-black text on the bright accent instead
+ * (~12:1 — passes AAA). Applies to the Galvyn Button accent variant and any
+ * `bg-accent` element using the `accent-on-bg` helper class.
+ */
+.galvyn-btn-accent {
+  color: var(--galvyn-bg-000);
+  font-weight: 600;
+}
+.accent-on-bg {
+  color: var(--galvyn-bg-000);
+}

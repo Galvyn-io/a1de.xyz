@@ -102,12 +102,21 @@ Raw time-series: `user_id`, `metric`, `value`, `unit`, `recorded_at`, `source`
 ### `schedules`
 User-defined recurring tasks: `cron_expression`, `action_type`, `action_config`
 
+## User-facing pages
+
+- `/memories` — list memories (grouped by category) and entities (grouped by type). Click an entity → see its incoming + outgoing relations and linked memories.
+- `/insights` — "What's new" dashboard for the graph: last-7-days totals, daily activity bars per source kind (calendar, gmail-structured, memory, banking), and the 8 most recent items per kind.
+
+The activity payload comes from `GET /memories/activity?days=N` (default 7, capped at 30). The aggregation logic lives in `backend/src/memory/activity.ts` — pure function `buildActivity({ events, memories, days, now })` so it can be unit-tested without mocking Supabase.
+
 ## Key files
 
 - `backend/src/memory/embeddings.ts` — Vertex AI embedding wrapper
 - `backend/src/memory/db.ts` — Memory CRUD (addMemory, searchMemories, getAlwaysInject, upsertEntity)
 - `backend/src/memory/search.ts` — Hybrid search combining embed + DB query
 - `backend/src/memory/tools.ts` — Tool definitions + executor for search_memory and save_fact
+- `backend/src/memory/activity.ts` — Pure aggregation for the /insights activity feed
+- `backend/src/memory/router.ts` — HTTP routes powering /memories and /insights
 - `infra/sql/004_memory.sql` — Full schema, indexes, RLS policies, hybrid_search function
 
 ## GCP infrastructure

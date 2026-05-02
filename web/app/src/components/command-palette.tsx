@@ -45,6 +45,7 @@ export function CommandPalette() {
   const commands: Command[] = [
     { id: 'chat-new', label: 'New chat', hint: 'C', group: 'create', action: () => router.push('/chat') },
     { id: 'goto-chat', label: 'Go to chat', group: 'navigate', action: () => router.push('/chat') },
+    { id: 'goto-insights', label: 'Go to insights — what\'s new', group: 'navigate', action: () => router.push('/insights') },
     { id: 'goto-tasks', label: 'Go to tasks', group: 'navigate', action: () => router.push('/tasks') },
     { id: 'goto-memory', label: 'Go to memory', group: 'navigate', action: () => router.push('/memories') },
     { id: 'goto-connectors', label: 'Go to connectors', group: 'navigate', action: () => router.push('/connectors') },

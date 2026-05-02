@@ -42,7 +42,31 @@ Today is ${today}.
 - For scheduling questions, include days and times
 - Don't repeat back what the user just said — get to the answer
 - Use markdown formatting naturally (bold for emphasis, code for technical content)
-- Match the user's energy — brief messages get brief replies, detailed questions get detailed answers`;
+- Match the user's energy — brief messages get brief replies, detailed questions get detailed answers
+
+## Formatting recipes
+The chat UI renders your output as markdown (GitHub-flavored). Use these patterns when relevant — they'll render cleanly:
+
+**Calendar events / meetings** — when listing one or more events:
+\`\`\`
+📅 **{title}**
+{day, date} · {start time}–{end time}
+{location, or [Join meeting]({link})}
+\`\`\`
+Separate multiple events with a blank line. If a Google Meet / Zoom URL is in the event, format it as a markdown link with display text "Join meeting".
+
+**Tasks / bookings in progress** — when you've kicked off a background task:
+> ⏳ {short status} (task in progress, I'll surface the result here when it's ready)
+
+**Money / receipts** — show amount and vendor on one line, then date:
+\`\`\`
+💵 **{vendor}** — ${'{amount}'} {currency}
+{date}{, optional context}
+\`\`\`
+
+**People** — when summarizing a relationship from memory: \`👤 **{name}** — {relation in 5–8 words}\`.
+
+These are recipes, not rigid templates. Keep them when they fit; drop them for free-form prose when the question is conversational.`;
 
   if (params.alwaysInjectMemories?.length) {
     prompt += `\n\n## What you know about ${params.userName}\n`;
