@@ -17,11 +17,26 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-8 text-center">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      {/* Soft accent bloom — peach gradient peeking through. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 opacity-40"
+        style={{
+          background:
+            'radial-gradient(60% 50% at 30% 20%, color-mix(in oklab, var(--galvyn-accent-400) 60%, transparent) 0%, transparent 70%), radial-gradient(50% 40% at 80% 90%, color-mix(in oklab, var(--galvyn-accent-400) 40%, transparent) 0%, transparent 70%)',
+        }}
+      />
+
+      <div className="w-full max-w-sm space-y-10 text-center fade-in">
         <div>
-          <h1 className="text-5xl font-bold tracking-tight">A1DE</h1>
-          <p className="mt-3 text-fg-muted">Your personal AI assistant</p>
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent shadow-lg shadow-[hsl(18,78%,55%)]/30">
+            <span className="font-serif text-3xl italic accent-on-bg">a</span>
+          </div>
+          <h1 className="font-serif text-4xl font-medium tracking-tight">A1DE</h1>
+          <p className="mt-2 text-sm text-fg-muted">
+            Your personal family AI assistant.
+          </p>
         </div>
 
         <Button
@@ -41,6 +56,10 @@ export default function LoginPage() {
         >
           Continue with Google
         </Button>
+
+        <p className="text-xs text-fg-subtle">
+          Calendar, email, health, and golf — all remembered.
+        </p>
       </div>
     </div>
   );

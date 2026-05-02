@@ -41,11 +41,19 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-8">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 opacity-30"
+        style={{
+          background:
+            'radial-gradient(50% 40% at 50% 20%, color-mix(in oklab, var(--galvyn-accent-400) 50%, transparent) 0%, transparent 70%)',
+        }}
+      />
+      <div className="w-full max-w-sm space-y-8 fade-in">
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight">Welcome to A1DE</h1>
-          <p className="mt-2 text-fg-muted">Let&apos;s set up your assistant</p>
+          <h1 className="font-serif text-4xl font-medium tracking-tight">Welcome</h1>
+          <p className="mt-2 text-sm text-fg-muted">Let&apos;s set up your assistant.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

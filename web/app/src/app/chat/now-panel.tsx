@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Badge } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/client';
 import type { Task, TaskStatus } from '@/lib/supabase/types';
+import { formatRelative } from '@/lib/format';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
@@ -41,13 +42,6 @@ function summarizeTask(t: Task): string {
   return TASK_TYPE_LABELS[t.type] ?? t.type;
 }
 
-function ageAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60_000) return `${Math.floor(diff / 1000)}s`;
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
-  return `${Math.floor(diff / 86_400_000)}d`;
-}
 
 export function NowPanel({ userId }: { userId: string }) {
   const [activeTasks, setActiveTasks] = useState<Task[]>([]);
@@ -165,7 +159,7 @@ export function NowPanel({ userId }: { userId: string }) {
                 {t.progress_message && (
                   <p className="mt-1 truncate text-[11px] text-warning">{t.progress_message}</p>
                 )}
-                <p className="mt-1 text-[10px] text-fg-subtle">started {t.started_at ? ageAgo(t.started_at) : ageAgo(t.created_at)} ago</p>
+                <p className="mt-1 text-[10px] text-fg-subtle">started {formatRelative(t.started_at ?? t.created_at)}</p>
               </div>
             ))}
           </div>
@@ -202,7 +196,7 @@ export function NowPanel({ userId }: { userId: string }) {
                 </div>
                 <div className="mt-1 flex items-center gap-2">
                   {m.always_inject && <Badge variant="success" size="sm">always</Badge>}
-                  <span className="text-[10px] text-fg-subtle">{m.category ?? 'note'} · {ageAgo(m.created_at)} ago</span>
+                  <span className="text-[10px] text-fg-subtle">{m.category ?? 'note'} · {formatRelative(m.created_at)}</span>
                 </div>
               </div>
             ))}

@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { usePlaidLink } from 'react-plaid-link';
 import { Button, Input } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/client';
 import { CONNECTOR_OPTIONS, PROVIDER_META } from '@/lib/connectors';
+import { AppShell } from '@/components/app-shell';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
@@ -137,11 +137,12 @@ export default function AddConnectorPage() {
   };
 
   return (
-    <div className="mx-auto max-w-lg px-6 py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Add Connector</h1>
-        <p className="mt-1 text-fg-muted">Connect a data source to your assistant</p>
-      </div>
+    <AppShell>
+      <div className="mx-auto w-full max-w-lg px-4 sm:px-6 pt-8 pb-16">
+        <div className="mb-8">
+          <h1 className="font-serif text-3xl font-medium tracking-tight">Add a connector</h1>
+          <p className="mt-1 text-sm text-fg-muted">Pick a data source to connect.</p>
+        </div>
 
       {step === 'pick' && (
         <div className="space-y-2">
@@ -210,11 +211,7 @@ export default function AddConnectorPage() {
         </form>
       )}
 
-      <div className="mt-8">
-        <Link href="/connectors" className="text-sm text-fg-muted hover:text-fg">
-          ← Back to connectors
-        </Link>
       </div>
-    </div>
+    </AppShell>
   );
 }

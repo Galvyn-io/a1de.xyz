@@ -9,6 +9,7 @@ import { useConfirm } from '@/components/confirm-dialog';
 import type { UserProfile, Conversation, Message } from '@/lib/supabase/types';
 import { NowPanel } from './now-panel';
 import { AssistantMarkdown } from '@/components/assistant-markdown';
+import { TopNav } from '@/components/top-nav';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
@@ -347,12 +348,14 @@ export function ChatInterface({
   const assistantName = profile.assistant_name ?? 'A1DE';
 
   return (
-    <div className="flex h-screen bg-bg">
+    <div className="flex h-screen flex-col bg-bg">
+      <TopNav />
+      <div className="flex flex-1 overflow-hidden">
       {/* Sidebar */}
       <div
         className={`${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } fixed inset-y-0 left-0 z-20 w-72 border-r border-border bg-bg-1 transition-transform md:relative md:translate-x-0`}
+        } fixed inset-y-0 left-0 z-20 mt-12 w-72 border-r border-border bg-bg-1 transition-transform md:relative md:mt-0 md:translate-x-0`}
       >
         <div className="flex h-full flex-col">
           <div className="border-b border-border p-3">
@@ -415,14 +418,9 @@ export function ChatInterface({
             ))}
           </div>
 
-          <div className="border-t border-border p-4 space-y-1.5">
-            <Link href="/insights" className="block text-xs text-fg-subtle hover:text-fg">Insights</Link>
-            <Link href="/memories" className="block text-xs text-fg-subtle hover:text-fg">Memory</Link>
-            <Link href="/tasks" className="block text-xs text-fg-subtle hover:text-fg">Tasks</Link>
-            <Link href="/connectors" className="block text-xs text-fg-subtle hover:text-fg">Connectors</Link>
-            <Link href="/dashboard" className="block text-xs text-fg-subtle hover:text-fg">Dashboard</Link>
-            <p className="pt-1 text-[10px] text-fg-subtle">
-              Press <kbd className="rounded border border-border px-1 py-0.5 font-mono">⌘K</kbd> to navigate
+          <div className="border-t border-border p-4">
+            <p className="text-[10px] text-fg-subtle">
+              Press <kbd className="rounded border border-border px-1 py-0.5 font-mono">⌘K</kbd> to navigate · use the top bar for other sections
             </p>
           </div>
         </div>
@@ -438,8 +436,8 @@ export function ChatInterface({
 
       {/* Main chat area */}
       <div className="flex flex-1 flex-col bg-bg">
-        {/* Header */}
-        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+        {/* Sub-header: conversation context + Now toggle */}
+        <div className="flex items-center gap-3 border-b border-border px-4 py-2">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="text-fg-muted hover:text-fg md:hidden"
@@ -449,7 +447,11 @@ export function ChatInterface({
               <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
             </svg>
           </button>
-          <h1 className="text-sm font-medium flex-1">{assistantName}</h1>
+          <p className="flex-1 truncate text-xs text-fg-muted">
+            {activeId
+              ? conversations.find((c) => c.id === activeId)?.title ?? 'Conversation'
+              : `Chatting with ${assistantName}`}
+          </p>
           <button
             onClick={() => setNowOpen((v) => !v)}
             className="hidden md:flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs text-fg-muted transition-colors hover:border-border-strong hover:text-fg"
@@ -464,9 +466,9 @@ export function ChatInterface({
         <div className="flex-1 overflow-y-auto px-4 py-6">
           {messages.length === 0 && !streaming && (
             <div className="flex h-full items-center justify-center">
-              <div className="max-w-md text-center">
-                <h2 className="text-2xl font-semibold tracking-tight">
-                  Chat with {assistantName}
+              <div className="max-w-md text-center fade-in">
+                <h2 className="font-serif text-3xl font-medium tracking-tight">
+                  Hi, I&apos;m <span className="italic">{assistantName}</span>
                 </h2>
                 <p className="mt-2 text-sm text-fg-muted">
                   Ask anything. I&apos;ll remember what matters.
@@ -596,6 +598,7 @@ export function ChatInterface({
           <NowPanel userId={profile.id} />
         </div>
       )}
+      </div>
     </div>
   );
 }

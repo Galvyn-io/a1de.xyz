@@ -8,20 +8,12 @@ import { useToast } from '@/components/toast';
 import { useConfirm } from '@/components/confirm-dialog';
 import type { Connector } from '@/lib/supabase/types';
 import { PROVIDER_META } from '@/lib/connectors';
+import { formatRelative } from '@/lib/format';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
 // Providers that support an on-demand refresh
 const REFRESHABLE = new Set(['google_calendar', 'gmail', 'whoop']);
-
-function ago(iso: string | null): string {
-  if (!iso) return 'never';
-  const diff = Date.now() - new Date(iso).getTime();
-  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return `${Math.floor(diff / 86_400_000)}d ago`;
-}
 
 export function ConnectorCard({ connector }: { connector: Connector }) {
   const [deleting, setDeleting] = useState(false);
@@ -95,7 +87,7 @@ export function ConnectorCard({ connector }: { connector: Connector }) {
           <p className="text-xs text-fg-subtle">
             {PROVIDER_META[connector.provider]?.label ?? connector.provider}
             {canRefresh && (
-              <span className="ml-2">· synced {ago(connector.last_synced_at)}</span>
+              <span className="ml-2">· synced {connector.last_synced_at ? formatRelative(connector.last_synced_at) : 'never'}</span>
             )}
           </p>
         </div>

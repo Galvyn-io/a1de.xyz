@@ -2,17 +2,18 @@
 @import '@galvyn-io/design/css';
 
 /*
- * A1DE accent color — teal feels right for an assistant: calm, technical,
- * not as corporate as blue, not as playful as purple.
+ * A1DE accent — warm peach. Hue 18 with a slightly higher saturation
+ * gives a sunset-coral that reads "warm + welcoming" without being loud.
+ * Pairs well with both light and dark modes.
  */
 :root {
-  --galvyn-accent-hue: 180;
+  --galvyn-accent-hue: 18;
+  --galvyn-accent-sat: 78%;
 }
 
 /*
  * Map Tailwind v4 @theme tokens to galvyn variables so we can use
- * Tailwind utilities like bg-bg, text-fg, border-border throughout the app
- * without having to rewrite every page in raw CSS.
+ * `bg-bg`, `text-fg`, `border-border`, etc. throughout the app.
  */
 @theme {
   --color-bg: var(--galvyn-bg-000);
@@ -32,8 +33,9 @@
   --color-warning: var(--galvyn-warning);
   --color-error: var(--galvyn-error);
 
-  --font-sans: var(--galvyn-font-sans);
+  --font-sans: var(--font-geist), ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: var(--galvyn-font-mono);
+  --font-serif: var(--font-newsreader), 'Iowan Old Style', 'Charter', Georgia, serif;
 
   --radius-sm: var(--galvyn-radius-sm);
   --radius-md: var(--galvyn-radius-md);
@@ -42,7 +44,10 @@
   --radius-2xl: var(--galvyn-radius-2xl);
 }
 
-/* Custom animations kept from before */
+/* ──────────────────────────────────────────────────────────── */
+/* Animations                                                  */
+/* ──────────────────────────────────────────────────────────── */
+
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
@@ -51,6 +56,16 @@
 @keyframes pulse-dots {
   0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
   40% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .cursor-blink::after {
@@ -67,23 +82,75 @@
 .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
 .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
 
-/* Set page baseline so anything not yet refactored still looks right */
-html, body {
-  background: var(--galvyn-bg-000);
-  color: var(--galvyn-text-100);
-  font-family: var(--galvyn-font-sans);
+.fade-in {
+  animation: fade-in 0.25s ease-out both;
 }
 
-/*
- * Accessibility override: the galvyn accent at L=55% with white text fails
- * WCAG contrast (~1.6:1). Use near-black text on the bright accent instead
- * (~12:1 — passes AAA). Applies to the Galvyn Button accent variant and any
- * `bg-accent` element using the `accent-on-bg` helper class.
- */
+/* Skeleton loader: subtle shimmering surface tile. */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--galvyn-surface-100) 0%,
+    var(--galvyn-surface-200) 50%,
+    var(--galvyn-surface-100) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ──────────────────────────────────────────────────────────── */
+/* Glassmorphism — for FLOATING surfaces only                  */
+/* (top nav, modals, palette, toasts, side panels).            */
+/* Don't apply to content cards — readability wins over depth. */
+/* ──────────────────────────────────────────────────────────── */
+
+.glass {
+  background-color: color-mix(in oklab, var(--galvyn-bg-000) 70%, transparent);
+  backdrop-filter: saturate(140%) blur(16px);
+  -webkit-backdrop-filter: saturate(140%) blur(16px);
+  border: 1px solid color-mix(in oklab, var(--galvyn-border-100) 80%, transparent);
+}
+.glass-strong {
+  background-color: color-mix(in oklab, var(--galvyn-bg-000) 82%, transparent);
+  backdrop-filter: saturate(160%) blur(24px);
+  -webkit-backdrop-filter: saturate(160%) blur(24px);
+  border: 1px solid color-mix(in oklab, var(--galvyn-border-200) 90%, transparent);
+}
+
+/* Fallback for browsers without backdrop-filter — solid-ish surface. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass, .glass-strong {
+    background-color: var(--galvyn-bg-100);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────── */
+/* Typography — serif for editorial moments                    */
+/* ──────────────────────────────────────────────────────────── */
+
+.font-serif {
+  font-family: var(--font-newsreader), 'Iowan Old Style', 'Charter', Georgia, serif;
+  font-feature-settings: 'liga', 'dlig', 'kern';
+  letter-spacing: -0.01em;
+}
+
+/* ──────────────────────────────────────────────────────────── */
+/* Accessibility override                                      */
+/* Bright accent + white text fails WCAG. Use near-black on    */
+/* the accent surface (passes AAA on both themes).             */
+/* ──────────────────────────────────────────────────────────── */
+
 .galvyn-btn-accent {
   color: var(--galvyn-bg-000);
   font-weight: 600;
 }
 .accent-on-bg {
   color: var(--galvyn-bg-000);
+}
+
+/* Page baseline */
+html, body {
+  background: var(--galvyn-bg-000);
+  color: var(--galvyn-text-100);
+  font-family: var(--font-geist), ui-sans-serif, -apple-system, sans-serif;
 }

@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Badge, FilterToggle } from '@galvyn-io/design/components';
 import { createClient } from '@/lib/supabase/client';
 import type { Task, TaskStatus } from '@/lib/supabase/types';
+import { AppShell } from '@/components/app-shell';
+import { formatRelative, formatNumber } from '@/lib/format';
 
 const STATUS_VARIANT: Record<TaskStatus, 'default' | 'accent' | 'success' | 'warning' | 'error'> = {
   pending: 'default',
@@ -32,20 +34,12 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
+  if (ms < 1000) return `${formatNumber(ms)}ms`;
   const s = Math.round(ms / 1000);
-  if (s < 60) return `${s}s`;
+  if (s < 60) return `${formatNumber(s)}s`;
   const m = Math.floor(s / 60);
   const r = s % 60;
-  return `${m}m ${r}s`;
-}
-
-function formatAge(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return `${Math.floor(diff / 86_400_000)}d ago`;
+  return `${formatNumber(m)}m ${formatNumber(r)}s`;
 }
 
 function summarizeInput(task: Task): string {
@@ -124,35 +118,38 @@ export function TasksView({ initialTasks, userId }: { initialTasks: Task[]; user
   );
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
-          <p className="mt-1 text-fg-muted">Background work your assistant is running</p>
+    <AppShell>
+      <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 pt-8 pb-16">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="font-serif text-3xl font-medium tracking-tight">Tasks</h1>
+            <p className="mt-1 text-sm text-fg-muted">Background work your assistant is running</p>
+          </div>
+          <FilterToggle
+            value={filter}
+            onChange={(v) => setFilter(v as typeof filter)}
+            options={[
+              { value: 'active', label: 'Active', count: counts.active },
+              { value: 'recent', label: 'Recent', count: counts.recent },
+              { value: 'all', label: 'All', count: counts.all },
+            ]}
+          />
         </div>
-        <FilterToggle
-          value={filter}
-          onChange={(v) => setFilter(v as typeof filter)}
-          options={[
-            { value: 'active', label: 'Active', count: counts.active },
-            { value: 'recent', label: 'Recent', count: counts.recent },
-            { value: 'all', label: 'All', count: counts.all },
-          ]}
-        />
-      </div>
 
-      {filtered.length === 0 && (
-        <div className="rounded-xl border border-border bg-surface p-12 text-center">
-          <p className="text-fg-muted">
-            {filter === 'active' ? 'No active tasks.' : 'No tasks yet.'}
-          </p>
-          <p className="mt-2 text-sm text-fg-subtle">
-            Tasks appear here when your assistant starts background work.
-          </p>
-        </div>
-      )}
+        {filtered.length === 0 && (
+          <div className="rounded-xl border border-border bg-surface p-12 text-center fade-in">
+            <div className="mb-3 text-4xl">⏳</div>
+            <p className="font-serif text-xl">
+              {filter === 'active' ? 'Nothing in flight' : 'No tasks yet'}
+            </p>
+            <p className="mt-2 text-sm text-fg-muted">
+              Tasks appear here when your assistant starts background work — tee time checks,
+              syncs, or anything else that runs while you carry on.
+            </p>
+          </div>
+        )}
 
-      <div className="space-y-2">
+      <div className="space-y-2 fade-in">
         {filtered.map((t) => {
           const typeLabel = TYPE_LABELS[t.type] ?? t.type;
           const inputSummary = summarizeInput(t);
@@ -167,7 +164,7 @@ export function TasksView({ initialTasks, userId }: { initialTasks: Task[]; user
           return (
             <div
               key={t.id}
-              className="rounded-lg border border-border bg-surface px-4 py-3 transition-colors hover:border-border-strong"
+              className="rounded-xl border border-border bg-surface px-4 py-3 transition-colors hover:border-border-strong"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -198,18 +195,14 @@ export function TasksView({ initialTasks, userId }: { initialTasks: Task[]; user
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
                   <Badge variant={STATUS_VARIANT[t.status]} dot>{STATUS_LABEL[t.status]}</Badge>
-                  <span className="text-xs text-fg-subtle">{formatAge(t.created_at)}</span>
+                  <span className="text-xs text-fg-subtle">{formatRelative(t.created_at)}</span>
                 </div>
               </div>
             </div>
           );
         })}
+        </div>
       </div>
-
-      <div className="mt-8 flex gap-4">
-        <Link href="/chat" className="text-sm text-fg-muted hover:text-fg">← Back to chat</Link>
-        <Link href="/dashboard" className="text-sm text-fg-muted hover:text-fg">Dashboard</Link>
-      </div>
-    </div>
+    </AppShell>
   );
 }

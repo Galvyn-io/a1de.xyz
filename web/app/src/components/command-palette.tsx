@@ -79,14 +79,14 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 backdrop-blur-md fade-in"
       onClick={() => setOpen(false)}
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
     >
       <div
-        className="mt-24 w-full max-w-lg overflow-hidden rounded-xl border border-border-strong bg-surface shadow-2xl"
+        className="mt-24 w-full max-w-lg overflow-hidden rounded-2xl glass-strong shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <input
