@@ -85,12 +85,18 @@ export default function AddConnectorPage() {
     setStep('label');
   };
 
-  const handleGoogleConnect = async (e: React.FormEvent) => {
+  const handleOAuthConnect = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selected) return;
 
     setLoading(true);
     setError('');
+
+    // Same OAuth shape for Google and Whoop — different start endpoints.
+    const authPath =
+      selected.authFlow === 'whoop'
+        ? `${BACKEND_URL}/connectors/whoop/auth`
+        : `${BACKEND_URL}/connectors/google/auth`;
 
     try {
       const supabase = createClient();
@@ -102,7 +108,7 @@ export default function AddConnectorPage() {
         return;
       }
 
-      const res = await fetch(`${BACKEND_URL}/connectors/google/auth`, {
+      const res = await fetch(authPath, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -158,7 +164,14 @@ export default function AddConnectorPage() {
       )}
 
       {step === 'label' && selected && (
-        <form onSubmit={selected.authFlow === 'google' ? handleGoogleConnect : (e) => e.preventDefault()} className="space-y-6">
+        <form
+          onSubmit={
+            selected.authFlow === 'google' || selected.authFlow === 'whoop'
+              ? handleOAuthConnect
+              : (e) => e.preventDefault()
+          }
+          className="space-y-6"
+        >
           <div className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3">
             <span className="text-lg">{PROVIDER_META[selected.provider].icon}</span>
             <span className="text-sm font-medium">{PROVIDER_META[selected.provider].label}</span>
@@ -190,7 +203,7 @@ export default function AddConnectorPage() {
               />
             ) : (
               <Button type="submit" loading={loading} variant="accent" size="md" className="flex-1">
-                Connect with Google
+                {selected.authFlow === 'whoop' ? 'Connect with Whoop' : 'Connect with Google'}
               </Button>
             )}
           </div>

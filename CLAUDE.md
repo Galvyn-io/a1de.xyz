@@ -37,9 +37,11 @@ A1DE (formerly "Jarvis") is a personal family AI assistant. Monorepo with Next.j
 - Google Calendar ingestion: events table, hourly incremental sync, `get_calendar_events` tool
 - Gmail ingestion: aggressive Haiku classifier (batches of 20), route to discard/structured (events table) / semantic (memory extraction). Backfill 50 days + replies, hourly incremental via Gmail history API.
 
+- Whoop connector: OAuth2 flow, hourly sync of recovery / sleep / strain / workouts into `health_metrics`. Backfills 30 days on connect; incremental thereafter via per-connector cursor.
+
 **What's NOT built yet:**
 - Connector ingestion (Gmail/Calendar → memories)
-- Health metrics connector (Apple Health/Whoop → health_metrics table)
+- Apple Health connector (waits on iOS app)
 - Proactive engine (daily checks, reminders, pattern detection)
 - User-defined schedules (cron jobs)
 - Messaging channels (Sendblue, Kapso, Twilio)
@@ -78,6 +80,10 @@ backend/
     │   ├── places.ts         # Google Places geocoding helper
     │   ├── skyvern.ts        # Skyvern API wrapper (browser automation)
     │   └── tools.ts          # search_golf_courses, check_tee_times_at_course, book_tee_time
+    ├── health/
+    │   ├── whoop.ts          # Whoop API client + pure mappers to health_metrics rows
+    │   └── db.ts             # upsertHealthMetrics, getRecentHealthMetrics
+    ├── realtime.ts            # Stateless REST broadcasts to Supabase Realtime
     └── tasks/
         ├── types.ts          # TaskHandler interface, TaskRow type
         ├── registry.ts       # Handler registration
@@ -91,6 +97,7 @@ backend/
             ├── memory-extract.ts
             ├── calendar-sync.ts
             ├── email-sync.ts
+            ├── whoop-sync.ts     # Pulls Whoop recovery/sleep/strain → health_metrics
             └── golf.ts
 
 web/app/

@@ -22,6 +22,10 @@ const envSchema = z.object({
   GOOGLE_PLACES_API_KEY: z.string().min(1),
   GOLF_COURSE_API_KEY: z.string().min(1),
   TASK_POLL_SECRET: z.string().min(16),
+  // Whoop is optional so the backend can boot without it. The Whoop OAuth
+  // module throws a clear "not configured" error if invoked without creds.
+  WHOOP_CLIENT_ID: z.string().min(1).optional(),
+  WHOOP_CLIENT_SECRET: z.string().min(1).optional(),
 });
 
 export const config = envSchema.parse(process.env);

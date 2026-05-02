@@ -62,6 +62,7 @@ tasks.post('/tick', async (c) => {
   const results = {
     calendar_sync_created: 0, calendar_sync_skipped: 0,
     email_sync_created: 0, email_sync_skipped: 0,
+    whoop_sync_created: 0, whoop_sync_skipped: 0,
   };
 
   const { createClient } = await import('@supabase/supabase-js');
@@ -109,6 +110,12 @@ tasks.post('/tick', async (c) => {
   const email = await scheduleSyncForProvider('gmail', 'email.sync', 50 * 60 * 1000);
   results.email_sync_created = email.created;
   results.email_sync_skipped = email.skipped;
+
+  // Whoop daily metrics — hourly polling is plenty since recovery scores
+  // are computed once per day. 50-minute cooldown matches email.
+  const whoop = await scheduleSyncForProvider('whoop', 'whoop.sync', 50 * 60 * 1000);
+  results.whoop_sync_created = whoop.created;
+  results.whoop_sync_skipped = whoop.skipped;
 
   return c.json(results);
 });

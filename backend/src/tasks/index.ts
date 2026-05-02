@@ -6,6 +6,7 @@ import { memoryExtractHandler } from './handlers/memory-extract.js';
 import { calendarSyncHandler } from './handlers/calendar-sync.js';
 import { emailSyncHandler } from './handlers/email-sync.js';
 import { chatRespondHandler } from './handlers/chat-respond.js';
+import { whoopSyncHandler } from './handlers/whoop-sync.js';
 
 export function registerAllHandlers(): void {
   registerHandler(golfSearchHandler);
@@ -14,6 +15,7 @@ export function registerAllHandlers(): void {
   registerHandler(calendarSyncHandler);
   registerHandler(emailSyncHandler);
   registerHandler(chatRespondHandler);
+  registerHandler(whoopSyncHandler);
 }
 
 // Re-exports for convenience

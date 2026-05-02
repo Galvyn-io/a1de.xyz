@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { config } from '../config.js';
 import { getProvider } from './providers.js';
 import { buildAuthUrl, verifyState, exchangeCode } from './google-oauth.js';
+import { buildWhoopAuthUrl, verifyWhoopState, exchangeWhoopCode } from './whoop-oauth.js';
 import { upsertCredential, createConnector, listConnectors, updateConnector, deleteConnector } from './db.js';
 import { createLinkToken, exchangePublicToken } from './plaid.js';
 
@@ -93,6 +94,79 @@ connectors.get('/google/callback', async (c) => {
   }
 });
 
+// Whoop OAuth: start the flow. Returns the authorize URL for the client to visit.
+connectors.post('/whoop/auth', requireAuth, async (c) => {
+  const user = c.get('user');
+  const body = await c.req.json<{ type: string; provider: string; label?: string }>();
+
+  const providerConfig = getProvider(body.provider);
+  if (!providerConfig || providerConfig.authType !== 'whoop') {
+    return c.json({ error: 'Unsupported provider' }, 400);
+  }
+
+  try {
+    const url = await buildWhoopAuthUrl({
+      userId: user.id,
+      type: providerConfig.type,
+      provider: providerConfig.provider,
+      label: body.label ?? '',
+      scopes: [...providerConfig.scopes],
+    });
+    return c.json({ url });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to build authorize URL';
+    return c.json({ error: message }, 400);
+  }
+});
+
+// Whoop OAuth callback — uses state JWT, no auth middleware.
+connectors.get('/whoop/callback', async (c) => {
+  const code = c.req.query('code');
+  const stateParam = c.req.query('state');
+  const error = c.req.query('error');
+
+  if (error || !code || !stateParam) {
+    return c.redirect(`${config.FRONTEND_URL}/connectors?error=${error ?? 'missing_code'}`);
+  }
+
+  try {
+    const state = await verifyWhoopState(stateParam);
+    const tokens = await exchangeWhoopCode(code);
+
+    const credential = await upsertCredential({
+      userId: state.userId,
+      provider: 'whoop',
+      accountId: tokens.whoopUserId,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      scopes: tokens.scopes,
+      expiresAt: tokens.expiresAt,
+    });
+
+    const connector = await createConnector({
+      userId: state.userId,
+      credentialId: credential.id,
+      type: state.type,
+      provider: state.provider,
+      label: state.label || tokens.email,
+    });
+
+    // Kick off an immediate backfill (last 30 days) so /insights and the
+    // chat agent see Whoop data right away.
+    const { createTask } = await import('../tasks/index.js');
+    await createTask({
+      userId: state.userId,
+      type: 'whoop.sync',
+      input: { connectorId: connector.id, backfill: true },
+    });
+
+    return c.redirect(`${config.FRONTEND_URL}/connectors?success=true`);
+  } catch (err) {
+    console.error('Whoop OAuth callback error:', err);
+    return c.redirect(`${config.FRONTEND_URL}/connectors?error=whoop_callback_failed`);
+  }
+});
+
 // Update connector (label)
 connectors.patch('/:id', requireAuth, async (c) => {
   const user = c.get('user');
@@ -110,6 +184,7 @@ connectors.patch('/:id', requireAuth, async (c) => {
 const REFRESH_TASK_TYPES: Record<string, string> = {
   google_calendar: 'calendar.sync',
   gmail: 'email.sync',
+  whoop: 'whoop.sync',
 };
 
 // Force a full refresh / backfill of a connector on demand

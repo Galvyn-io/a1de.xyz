@@ -9,11 +9,12 @@ export const PROVIDER_META: Record<ConnectorProvider, { label: string; icon: str
   apple_health: { label: 'Apple Health', icon: '❤' },
 };
 
-export type AuthFlow = 'google' | 'plaid';
+export type AuthFlow = 'google' | 'plaid' | 'whoop';
 
 export const CONNECTOR_OPTIONS = [
   { type: 'email' as const, provider: 'gmail' as const, description: 'Read your email', authFlow: 'google' as AuthFlow },
   { type: 'calendar' as const, provider: 'google_calendar' as const, description: 'Access your calendar', authFlow: 'google' as AuthFlow },
   { type: 'photos' as const, provider: 'google_photos' as const, description: 'Access your photos', authFlow: 'google' as AuthFlow },
   { type: 'banking' as const, provider: 'plaid' as const, description: 'Connect your bank accounts', authFlow: 'plaid' as AuthFlow },
+  { type: 'health' as const, provider: 'whoop' as const, description: 'Sync recovery, sleep, strain, and workouts', authFlow: 'whoop' as AuthFlow },
 ];

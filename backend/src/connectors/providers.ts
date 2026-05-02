@@ -23,6 +23,23 @@ export const PROVIDERS = {
     authType: 'plaid' as const,
     scopes: ['transactions'],
   },
+  whoop: {
+    type: 'health' as const,
+    provider: 'whoop' as const,
+    authType: 'whoop' as const,
+    // Whoop OAuth scopes — `offline` lets us refresh without user re-auth.
+    // `read:body_measurement` covers weight/height; the rest are the daily
+    // metrics we ingest into health_metrics.
+    scopes: [
+      'offline',
+      'read:profile',
+      'read:recovery',
+      'read:sleep',
+      'read:cycles',
+      'read:workout',
+      'read:body_measurement',
+    ],
+  },
 } as const;
 
 export type ProviderKey = keyof typeof PROVIDERS;

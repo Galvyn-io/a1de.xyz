@@ -12,7 +12,7 @@ import { PROVIDER_META } from '@/lib/connectors';
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
 // Providers that support an on-demand refresh
-const REFRESHABLE = new Set(['google_calendar', 'gmail']);
+const REFRESHABLE = new Set(['google_calendar', 'gmail', 'whoop']);
 
 function ago(iso: string | null): string {
   if (!iso) return 'never';

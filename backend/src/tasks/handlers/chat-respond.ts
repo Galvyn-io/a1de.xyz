@@ -1,12 +1,17 @@
 /**
  * chat.respond task handler.
  *
- * Runs the Claude tool-use loop server-side using the streaming API.
- * Live token deltas are broadcast over a Supabase realtime channel
- * (`chat:{conversationId}`) so the UI sees them as they arrive. Tool calls,
- * tool results, and the final assistant message are persisted to the
- * `messages` table; the frontend's existing postgres_changes subscription
- * picks those up.
+ * Runs the Claude tool-use loop server-side using the streaming API. Live
+ * token deltas are broadcast over Supabase realtime (`chat:{conversationId}`)
+ * so the UI sees them as they arrive. Tool calls, tool results, and the
+ * final assistant message are persisted to the `messages` table; the
+ * frontend's postgres_changes subscription picks those up.
+ *
+ * Broadcasts use the stateless REST endpoint (see backend/src/realtime.ts)
+ * rather than the WebSocket-based channel API. The WS approach required a
+ * 0.5–2s subscribe handshake before the first send, which the user saw as
+ * latency before the first token. REST is one HTTP POST per batch — no
+ * socket lifecycle.
  *
  * Why a task and not an HTTP handler:
  *   The agent loop runs to completion regardless of client presence. Close
@@ -37,13 +42,12 @@ import { MEMORY_TOOLS, executeTool as executeMemoryTool } from '../../memory/too
 import { GOLF_TOOLS, executeGolfTool } from '../../golf/tools.js';
 import { INGESTION_TOOLS, executeIngestionTool } from '../../ingestion/tools.js';
 import { createTask } from '../runner.js';
+import { broadcast as broadcastRealtime } from '../../realtime.js';
 
 const MAX_TOOL_ITERATIONS = 5;
 // Batch live token deltas so we don't fire one broadcast per character.
 // 80ms is short enough to feel real-time and long enough to coalesce useful chunks.
 const DELTA_BATCH_MS = 80;
-// Hard cap so a misconfigured realtime endpoint doesn't block the agent loop.
-const SUBSCRIBE_TIMEOUT_MS = 5000;
 
 const WEB_SEARCH_TOOL = {
   type: 'web_search_20250305' as const,
@@ -104,36 +108,14 @@ export const chatRespondHandler: TaskHandler = {
     const systemPrompt = buildSystemPrompt({ assistantName, userName, alwaysInjectMemories });
     const lastUserMessage = history.filter((m) => m.role === 'user').pop()?.content ?? '';
 
-    // Subscribe to a broadcast channel for live token deltas. Failures here
-    // are non-fatal — the agent loop runs and persists messages regardless;
-    // only the live-typing UX is impacted.
-    const channel = supabase.channel(`chat:${conversationId}`);
-    let broadcastReady = false;
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error('Realtime subscribe timeout')), SUBSCRIBE_TIMEOUT_MS);
-        channel.subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            clearTimeout(t);
-            resolve();
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            clearTimeout(t);
-            reject(new Error(`Realtime status: ${status}`));
-          }
-        });
-      });
-      broadcastReady = true;
-    } catch (err) {
-      console.warn('[chat.respond] realtime subscribe failed, continuing without live deltas:', err);
-    }
-
+    // Send live token deltas + tool indicators over Supabase realtime
+    // broadcast (REST API — no socket subscribe handshake, so the first
+    // token reaches the user as soon as Claude emits it).
+    const topic = `chat:${conversationId}`;
     const broadcast = (event: string, payload: Record<string, unknown>): void => {
-      if (!broadcastReady) return;
-      // Fire-and-forget — we never want a broken realtime channel to wedge
-      // the agent loop or the user's response.
-      channel
-        .send({ type: 'broadcast', event, payload })
-        .catch((err) => console.warn('[chat.respond] broadcast failed:', err));
+      // Fire-and-forget. The final message is persisted to `messages` either
+      // way; broadcast is purely a UX nicety for the live-typing effect.
+      void broadcastRealtime(topic, event, payload);
     };
 
     const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
@@ -312,11 +294,6 @@ export const chatRespondHandler: TaskHandler = {
       broadcast('error', { error: errorMessage });
       return { status: 'failed', output: { error: errorMessage } };
     } finally {
-      try {
-        await channel.unsubscribe();
-      } catch {
-        // Ignore — channel may already be closed.
-      }
       await langfuse.flushAsync().catch(() => {
         // Telemetry flush is best-effort.
       });

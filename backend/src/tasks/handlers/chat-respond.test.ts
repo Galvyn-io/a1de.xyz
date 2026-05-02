@@ -125,27 +125,22 @@ vi.mock('@anthropic-ai/sdk', () => {
   };
 });
 
-// Supabase: createClient returns a stub with `.from(...)` for the user_profiles
-// query and `.channel(...)` for realtime broadcast.
+// Realtime broadcasts go through backend/src/realtime.ts (fetch-based).
+// We capture them at the module boundary instead of mocking global fetch
+// so the test stays focused on the handler's behavior.
 const broadcastSends: Array<{ event: string; payload: Record<string, unknown> }> = [];
-let subscribeStatus: 'SUBSCRIBED' | 'CHANNEL_ERROR' = 'SUBSCRIBED';
+let broadcastShouldFail = false;
 
-function makeFakeChannel() {
-  return {
-    subscribe(cb?: (status: string) => void) {
-      cb?.(subscribeStatus);
-      return this;
-    },
-    async send(args: { type: string; event: string; payload: Record<string, unknown> }) {
-      broadcastSends.push({ event: args.event, payload: args.payload });
-      return { status: 'ok' };
-    },
-    async unsubscribe() {
-      return undefined;
-    },
-  };
-}
+vi.mock('../../realtime.js', () => ({
+  broadcast: vi.fn(async (_topic: string, event: string, payload: Record<string, unknown>) => {
+    if (broadcastShouldFail) return; // simulate degraded realtime
+    broadcastSends.push({ event, payload });
+  }),
+  broadcastFromServer: vi.fn(),
+}));
 
+// Supabase: createClient returns a stub with `.from(...)` for the user_profiles
+// query. The handler no longer uses .channel() — broadcasts happen via REST.
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
     from: () => ({
@@ -155,7 +150,6 @@ vi.mock('@supabase/supabase-js', () => ({
         }),
       }),
     }),
-    channel: () => makeFakeChannel(),
   }),
 }));
 
@@ -206,7 +200,7 @@ beforeEach(() => {
   streamCallCount = 0;
   textListeners.length = 0;
   broadcastSends.length = 0;
-  subscribeStatus = 'SUBSCRIBED';
+  broadcastShouldFail = false;
   vi.clearAllMocks();
 
   mockGetConversation.mockResolvedValue({
@@ -312,8 +306,8 @@ describe('chat.respond handler', () => {
     );
   });
 
-  it('persists the final message even when realtime subscribe fails (disconnect-resilience)', async () => {
-    subscribeStatus = 'CHANNEL_ERROR';
+  it('persists the final message even when realtime broadcast fails (disconnect-resilience)', async () => {
+    broadcastShouldFail = true;
     scriptedResponses = [
       {
         model: 'claude-sonnet-4-5-20250929',
@@ -326,14 +320,14 @@ describe('chat.respond handler', () => {
     const result = await chatRespondHandler.run(makeTask());
     expect(result.status).toBe('completed');
 
-    // Final message saved despite no realtime broadcast subscribers
+    // Final message saved despite the realtime broadcast failing
     const finalSave = mockAddMessage.mock.calls.find(
       (call) => call[0].role === 'assistant' && !call[0].toolCalls,
     );
     expect(finalSave).toBeDefined();
     expect(finalSave![0].content).toBe('reply with no realtime');
 
-    // No broadcasts should have been recorded since broadcastReady is false
+    // No broadcasts should have been recorded since the mock simulated failure
     expect(broadcastSends).toHaveLength(0);
   });
 
