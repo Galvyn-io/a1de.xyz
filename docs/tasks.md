@@ -132,9 +132,12 @@ When webhooks become available for a provider, we can add them without removing 
 
 | Type | Provider | Trigger | Purpose |
 |---|---|---|---|
+| `chat.respond` | anthropic | `POST /chat` | Run the agent loop for a user message — streaming, tool use, persistence |
+| `memory.extract` | anthropic | after each chat | Extract facts from a conversation turn |
+| `calendar.sync` | google | hourly tick + on connect + manual refresh | Pull Google Calendar events into the `events` table |
+| `email.sync` | google | hourly tick + on connect + manual refresh | Pull Gmail messages, classify, route to discard / structured / semantic |
 | `golf.search` | skyvern | chat | Check tee time availability at a course |
 | `golf.book` | skyvern | chat | Book a specific tee time |
-| `memory.extract` | anthropic | after each chat | Extract facts from a conversation turn |
 
 ## UI
 
@@ -143,6 +146,8 @@ When webhooks become available for a provider, we can add them without removing 
 - Each task shows: type, input summary, status, progress, duration, link to originating chat
 
 When a task completes with `conversation_id`, the handler posts a message to the chat via `appendSystemMessageToConversation()`. The frontend (chat-interface.tsx) is subscribed to `messages` table realtime updates on the active conversation, so the message appears live without refresh.
+
+The `chat.respond` handler is special: it doesn't just append on completion — it persists tool-call assistant messages and tool-result messages incrementally as the agent loop progresses, and also broadcasts live token deltas on the realtime channel `chat:{conversationId}` while streaming. This lets the chat UI show real-time token-by-token output while the agent runs server-side, even if the client disconnects mid-response.
 
 ## Key files
 

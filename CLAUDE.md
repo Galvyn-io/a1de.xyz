@@ -19,8 +19,8 @@ A1DE (formerly "Jarvis") is a personal family AI assistant. Monorepo with Next.j
 - Connector system: OAuth flow to connect Gmail, Google Calendar, Google Photos
 - Connector management UI (add, view, disconnect)
 - Backend API: connector CRUD + Google OAuth token exchange/refresh
-- Chat system: streaming Claude Sonnet responses via SSE, conversation persistence
-- Chat UI: conversation sidebar, message bubbles, streaming display, tool status display
+- Chat system: agent runs server-side via the `chat.respond` task; live token streaming over Supabase realtime broadcast; final messages persisted to DB so closing the tab mid-response doesn't lose the answer
+- Chat UI: conversation sidebar, message bubbles, live broadcast subscription, tool status display
 - Memory system: knowledge graph (entities + memories + relations) with hybrid search (vector + full-text + RRF)
 - Tool-use loop: Claude can call `search_memory` and `save_fact` tools, with multi-turn execution
 - Always-inject memories: core preferences loaded into every system prompt
@@ -64,9 +64,9 @@ backend/
     │   ├── db.ts             # Supabase queries (service_role)
     │   └── google-oauth.ts   # OAuth URL, code exchange, token refresh
     ├── chat/
-    │   ├── router.ts         # POST /chat, GET /stream (SSE + tool loop), conversations
+    │   ├── router.ts         # POST /chat (enqueues chat.respond task), conversation CRUD
     │   ├── db.ts             # Conversation + message persistence
-    │   └── claude.ts         # Claude API wrapper, system prompt, tool-use
+    │   └── claude.ts         # buildSystemPrompt + buildMessages (history → Anthropic format)
     ├── memory/
     │   ├── embeddings.ts     # Vertex AI Gemini Embedding wrapper
     │   ├── db.ts             # Memory + entity CRUD, hybrid search
@@ -86,7 +86,12 @@ backend/
         ├── router.ts         # GET /tasks, GET /tasks/:id, POST /tasks/poll
         ├── chat-notifier.ts  # Append task results to a chat conversation
         ├── index.ts          # registerAllHandlers() — call once at startup
-        └── handlers/         # One file per task type (golf.search, memory.extract, ...)
+        └── handlers/         # One file per task type
+            ├── chat-respond.ts   # Agent loop: streaming + tool use + persistence
+            ├── memory-extract.ts
+            ├── calendar-sync.ts
+            ├── email-sync.ts
+            └── golf.ts
 
 web/app/
 ├── src/
@@ -120,12 +125,16 @@ infra/sql/
 
 docs/
 ├── auth.md                   # Authentication architecture
-├── chat.md                   # Chat system + tool-use loop
+├── chat.md                   # Chat as a task: streaming, broadcast, disconnect resilience
 ├── connectors.md             # Connector system architecture
 ├── deployment.md             # Vercel + Cloud Run + Vertex AI + Cloud Scheduler
 ├── ingestion.md              # Per-channel data ingestion strategy
 ├── memory.md                 # Memory system (knowledge graph, hybrid search, tools)
-└── tasks.md                  # Unified async task system
+├── tasks.md                  # Unified async task system
+└── testing.md                # vitest setup, CI gates, what's covered
+
+.github/workflows/
+└── ci.yml                    # Typecheck + tests on push/PR (must pass before deploy)
 ```
 
 ## Adding a new connector provider
@@ -144,6 +153,7 @@ The connectors list page (`web/app/src/app/connectors/page.tsx`) renders section
 - Always write release notes for every commit
 - Use **pnpm** (not npm) for all package management
 - Always pass `--project` to gcloud commands, never rely on defaults
+- Run `pnpm -F @a1de/backend typecheck && pnpm -F @a1de/backend test` before pushing — CI runs the same checks and a red gate blocks the deploy mental model
 
 ## Code style
 
@@ -164,7 +174,8 @@ The connectors list page (`web/app/src/app/connectors/page.tsx`) renders section
 - `docs/connectors.md` — Connector system architecture
 - `docs/deployment.md` — Deployment guide (Vercel + Cloud Run)
 - `backend/src/telemetry.ts` — Langfuse tracing
-- `backend/src/chat/` — Chat API (streaming, tool-use loop, Claude integration)
+- `backend/src/chat/` — Chat HTTP routes + system prompt / message builders
+- `backend/src/tasks/handlers/chat-respond.ts` — Agent loop (streaming, tool use, persistence)
 - `backend/src/memory/` — Memory system (embeddings, hybrid search, tools, background extraction)
 - `backend/src/golf/` — Golf course lookup + Skyvern browser automation
 - `backend/src/tasks/` — Unified async task system (runner, handlers, polling)

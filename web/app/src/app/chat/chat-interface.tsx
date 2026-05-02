@@ -82,9 +82,10 @@ export function ChatInterface({
     }
   }, [initialConversationId, initialMessages]);
 
-  // Subscribe to realtime new messages on the active conversation
-  // Used to pick up task-generated messages (tee time results, booking confirmations)
-  // that appear without the user having to do anything
+  // Subscribe to realtime INSERTs on the active conversation's messages.
+  // The chat.respond task writes assistant + tool messages here, and any
+  // other task that injects into the conversation (golf results, etc.)
+  // shows up the same way.
   useEffect(() => {
     if (!activeId) return;
     const supabase = createClient();
@@ -96,14 +97,68 @@ export function ChatInterface({
         (payload) => {
           const newMsg = payload.new as Message;
           setMessages((prev) => {
-            // Skip if we already have this message (streaming flow inserts too)
             if (prev.some((m) => m.id === newMsg.id)) return prev;
             const updated = [...prev, newMsg];
             messageCache.current.set(activeId, updated);
             return updated;
           });
+          // A final assistant message (no tool_calls) means the agent's done.
+          if (newMsg.role === 'assistant' && !newMsg.tool_calls) {
+            setStreaming(false);
+            setStreamingContent('');
+            setToolStatus(null);
+          }
         },
       )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeId]);
+
+  // Subscribe to live token deltas from the chat.respond task. These are
+  // ephemeral broadcasts (no DB writes) so they only matter while a task is
+  // actively running. If the user reloads mid-response, the persisted final
+  // message still arrives via the postgres_changes subscription above.
+  useEffect(() => {
+    if (!activeId) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`chat:${activeId}`)
+      .on('broadcast', { event: 'delta' }, ({ payload }) => {
+        setToolStatus(null);
+        setStreamingContent((prev) => prev + (payload.text ?? ''));
+      })
+      .on('broadcast', { event: 'tool_call' }, ({ payload }) => {
+        const toolName = payload.name as string;
+        const label =
+          toolName === 'search_memory' ? 'Searching memory...'
+          : toolName === 'save_fact' ? 'Saving to memory...'
+          : toolName === 'get_calendar_events' ? 'Checking your calendar...'
+          : toolName === 'search_golf_courses' ? 'Searching golf courses...'
+          : toolName === 'web_search' ? 'Searching the web...'
+          : toolName === 'check_tee_times_at_course' ? 'Starting tee time check...'
+          : toolName === 'check_task_status' ? 'Checking task status...'
+          : toolName === 'book_tee_time' ? 'Starting booking...'
+          : `Running ${toolName}...`;
+        setToolStatus(label);
+        // Reset accumulated text — anything streamed before the tool call has
+        // already been persisted as an assistant message that will arrive via
+        // postgres_changes.
+        setStreamingContent('');
+      })
+      .on('broadcast', { event: 'done' }, () => {
+        setStreaming(false);
+        setStreamingContent('');
+        setToolStatus(null);
+      })
+      .on('broadcast', { event: 'error' }, ({ payload }) => {
+        setError(typeof payload.error === 'string' ? payload.error : 'Something went wrong');
+        setStreaming(false);
+        setStreamingContent('');
+        setToolStatus(null);
+      })
       .subscribe();
 
     return () => {
@@ -220,9 +275,13 @@ export function ChatInterface({
     setStreamingContent('');
     setError(null);
 
-    // Optimistically add user message
+    // Optimistically add user message — the postgres_changes INSERT will
+    // arrive shortly with the real id, and the dedup check skips it because
+    // ids won't collide. We replace the optimistic row when the real one
+    // lands so the keys stay correct.
+    const optimisticId = 'temp-' + Date.now();
     const optimisticMsg: Message = {
-      id: 'temp-' + Date.now(),
+      id: optimisticId,
       conversation_id: activeId ?? '',
       user_id: profile.id,
       role: 'user',
@@ -237,7 +296,6 @@ export function ChatInterface({
     try {
       const token = await getToken();
 
-      // 1. POST the user message
       const postRes = await fetch(`${BACKEND_URL}/chat`, {
         method: 'POST',
         headers: {
@@ -254,98 +312,24 @@ export function ChatInterface({
         throw new Error('Failed to send message');
       }
 
-      const { conversation_id } = await postRes.json();
+      const { conversation_id, message_id } = await postRes.json();
+
+      // Replace the optimistic message with the real id so the realtime
+      // INSERT doesn't double-render it (dedup is by id).
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimisticId ? { ...m, id: message_id, conversation_id } : m)),
+      );
+
       if (!activeId) {
         setActiveId(conversation_id);
       }
 
-      // 2. Stream the response
-      const streamRes = await fetch(
-        `${BACKEND_URL}/chat/stream?conversation_id=${conversation_id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-
-      if (!streamRes.ok || !streamRes.body) {
-        throw new Error('Failed to start stream');
-      }
-
-      const reader = streamRes.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      let fullContent = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const payload = line.slice(6).trim();
-          if (!payload) continue;
-
-          try {
-            const event = JSON.parse(payload);
-
-            if (event.tool_call) {
-              const toolName = event.tool_call.name;
-              const label = toolName === 'search_memory' ? 'Searching memory...'
-                : toolName === 'save_fact' ? 'Saving to memory...'
-                : toolName === 'get_calendar_events' ? 'Checking your calendar...'
-                : toolName === 'search_golf_courses' ? 'Searching golf courses...'
-                : toolName === 'web_search' ? 'Searching the web...'
-                : toolName === 'check_tee_times_at_course' ? 'Starting tee time check...'
-                : toolName === 'check_task_status' ? 'Checking task status...'
-                : toolName === 'book_tee_time' ? 'Starting booking...'
-                : `Running ${toolName}...`;
-              setToolStatus(label);
-            }
-
-            if (event.delta) {
-              setToolStatus(null);
-              fullContent += event.delta;
-              setStreamingContent(fullContent);
-            }
-
-            if (event.done) {
-              const assistantMsg: Message = {
-                id: event.message_id,
-                conversation_id: conversation_id,
-                user_id: profile.id,
-                role: 'assistant',
-                content: fullContent,
-                tool_calls: null,
-                tool_result: null,
-                model: null,
-                created_at: new Date().toISOString(),
-              };
-              setMessages((prev) => {
-                const updated = [...prev, assistantMsg];
-                messageCache.current.set(conversation_id, updated);
-                return updated;
-              });
-              setStreamingContent('');
-            }
-
-            if (event.error) {
-              setError(event.error);
-            }
-          } catch {
-            // ignore malformed JSON lines
-          }
-        }
-      }
-
-      await refreshConversations();
+      // Refresh sidebar so the new conversation (and updated_at) shows up.
+      // Fire and forget — stale sidebar is fine briefly.
+      refreshConversations();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong';
       setError(msg);
-    } finally {
       setStreaming(false);
       setStreamingContent('');
       setToolStatus(null);

@@ -1,9 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages.js';
-import { config } from '../config.js';
 import type { MessageRow } from './db.js';
-
-const client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
 
 export function buildSystemPrompt(params: {
   assistantName: string;
@@ -107,30 +103,4 @@ export function buildMessages(history: MessageRow[]): MessageParam[] {
   }
 
   return result;
-}
-
-export function callClaude(params: {
-  messages: MessageParam[];
-  systemPrompt: string;
-  tools?: Anthropic.Tool[];
-}) {
-  return client.messages.create({
-    model: 'claude-sonnet-4-5-20250929',
-    max_tokens: 8096,
-    system: params.systemPrompt,
-    messages: params.messages,
-    tools: params.tools,
-  });
-}
-
-export function streamClaude(params: {
-  messages: MessageParam[];
-  systemPrompt: string;
-}) {
-  return client.messages.stream({
-    model: 'claude-sonnet-4-5-20250929',
-    max_tokens: 8096,
-    system: params.systemPrompt,
-    messages: params.messages,
-  });
 }

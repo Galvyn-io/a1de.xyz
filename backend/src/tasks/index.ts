@@ -5,6 +5,7 @@ import { golfSearchHandler, golfBookHandler } from './handlers/golf.js';
 import { memoryExtractHandler } from './handlers/memory-extract.js';
 import { calendarSyncHandler } from './handlers/calendar-sync.js';
 import { emailSyncHandler } from './handlers/email-sync.js';
+import { chatRespondHandler } from './handlers/chat-respond.js';
 
 export function registerAllHandlers(): void {
   registerHandler(golfSearchHandler);
@@ -12,6 +13,7 @@ export function registerAllHandlers(): void {
   registerHandler(memoryExtractHandler);
   registerHandler(calendarSyncHandler);
   registerHandler(emailSyncHandler);
+  registerHandler(chatRespondHandler);
 }
 
 // Re-exports for convenience
