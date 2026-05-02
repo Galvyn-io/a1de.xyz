@@ -6,7 +6,7 @@
  * here; this module decides how to bucket them.
  */
 
-export type ActivityKind = 'calendar' | 'gmail_structured' | 'memory' | 'banking';
+export type ActivityKind = 'calendar' | 'gmail_structured' | 'memory' | 'banking' | 'health';
 
 export interface EventRow {
   id: string;
@@ -24,6 +24,15 @@ export interface MemoryRow {
   created_at: string;
 }
 
+export interface HealthMetricRow {
+  id: string;
+  metric: string;
+  value: number;
+  unit: string;
+  source: string | null;
+  recorded_at: string;
+}
+
 export interface ActivityBucket {
   date: string;            // YYYY-MM-DD
   counts: Record<ActivityKind, number>;
@@ -37,13 +46,14 @@ export interface ActivityResponse {
     calendar: EventRow[];
     gmail_structured: EventRow[];
     memory: MemoryRow[];
+    health: HealthMetricRow[];
   };
 }
 
 const RECENT_PER_KIND = 8;
 
 function emptyCounts(): Record<ActivityKind, number> {
-  return { calendar: 0, gmail_structured: 0, memory: 0, banking: 0 };
+  return { calendar: 0, gmail_structured: 0, memory: 0, banking: 0, health: 0 };
 }
 
 /**
@@ -63,14 +73,19 @@ export function classifyEventSource(source: string): ActivityKind | null {
  *
  * `now` is injected so tests can pin time. In production the caller passes
  * `new Date()`.
+ *
+ * Health metrics are bucketed by `recorded_at` (when the reading is for —
+ * usually the previous night/morning), not `created_at` (when we ingested
+ * it). That matches what the user expects to see on a "last 7 days" strip.
  */
 export function buildActivity(params: {
   events: EventRow[];
   memories: MemoryRow[];
+  health: HealthMetricRow[];
   days: number;
   now: Date;
 }): ActivityResponse {
-  const { events, memories, days } = params;
+  const { events, memories, health, days } = params;
   const now = params.now.getTime();
 
   const buckets = new Map<string, Record<ActivityKind, number>>();
@@ -87,6 +102,9 @@ export function buildActivity(params: {
   for (const m of memories) {
     bump(m.created_at.slice(0, 10), 'memory');
   }
+  for (const h of health) {
+    bump(h.recorded_at.slice(0, 10), 'health');
+  }
 
   // Continuous date strip from oldest → newest, zero-filled
   const bucketArray: ActivityBucket[] = [];
@@ -100,6 +118,7 @@ export function buildActivity(params: {
     acc.gmail_structured += b.counts.gmail_structured;
     acc.memory += b.counts.memory;
     acc.banking += b.counts.banking;
+    acc.health += b.counts.health;
     return acc;
   }, emptyCounts());
 
@@ -111,6 +130,7 @@ export function buildActivity(params: {
       calendar: events.filter((e) => e.source === 'google_calendar').slice(0, RECENT_PER_KIND),
       gmail_structured: events.filter((e) => e.source.startsWith('gmail_')).slice(0, RECENT_PER_KIND),
       memory: memories.slice(0, RECENT_PER_KIND),
+      health: health.slice(0, RECENT_PER_KIND),
     },
   };
 }

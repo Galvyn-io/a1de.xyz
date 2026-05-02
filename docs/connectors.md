@@ -21,6 +21,15 @@ All flatten into `health_metrics` rows (one row per metric reading). The table's
 
 **Backfill:** 30 days on connect. Incremental sync uses `connectors.sync_cursor` to track the most recent `created_at` ingested.
 
+**Webhooks:** Whoop pushes events to `POST https://cr.a1de.xyz/webhooks/whoop` when a recovery / sleep / cycle / workout score publishes. The endpoint:
+
+1. Verifies the HMAC-SHA256 signature on `X-WHOOP-Signature` (computed from `X-WHOOP-Signature-Timestamp + raw_body` keyed with `WHOOP_CLIENT_SECRET`).
+2. Rejects timestamps more than 5 minutes off "now" (replay protection).
+3. Looks up the connector by Whoop user_id (stored as `connector_credentials.account_id`).
+4. Schedules a `whoop.sync` task — but skips if a recent (< 60s) task already exists for the same connector, so a burst of events doesn't fan out into N redundant syncs.
+
+Register the URL `https://cr.a1de.xyz/webhooks/whoop` in your Whoop developer dashboard. The hourly Cloud Scheduler tick still runs as a safety net for missed events.
+
 ## How it works
 
 ### Adding a connector

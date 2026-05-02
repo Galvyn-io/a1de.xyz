@@ -7,7 +7,7 @@ import { useToast } from '@/components/toast';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? '';
 
-type Kind = 'calendar' | 'gmail_structured' | 'memory' | 'banking';
+type Kind = 'calendar' | 'gmail_structured' | 'memory' | 'banking' | 'health';
 
 interface ActivityResponse {
   days: number;
@@ -17,6 +17,7 @@ interface ActivityResponse {
     calendar: Array<{ id: string; title: string | null; source: string; start_at: string | null; created_at: string }>;
     gmail_structured: Array<{ id: string; title: string | null; source: string; created_at: string }>;
     memory: Array<{ id: string; content: string; source: string | null; category: string | null; created_at: string }>;
+    health: Array<{ id: string; metric: string; value: number; unit: string; source: string | null; recorded_at: string }>;
   };
 }
 
@@ -25,6 +26,35 @@ const KIND_META: Record<Kind, { label: string; icon: string; color: string }> = 
   gmail_structured: { label: 'Bills · receipts · travel', icon: '✉️', color: 'text-fg' },
   memory: { label: 'Facts learned', icon: '🧠', color: 'text-fg' },
   banking: { label: 'Banking', icon: '🏦', color: 'text-fg' },
+  health: { label: 'Health readings', icon: '💚', color: 'text-fg' },
+};
+
+// Compact human-readable formatting for the recent-readings list.
+function formatHealthValue(metric: string, value: number, unit: string): string {
+  if (unit === '%') return `${value}%`;
+  if (unit === 'bpm') return `${value} bpm`;
+  if (unit === 'ms') return `${value} ms`;
+  if (unit === 'hours') return `${value}h`;
+  if (unit === 'whoop_strain') return `${value} strain`;
+  if (unit === 'kJ') return `${Math.round(value)} kJ`;
+  return `${value} ${unit}`;
+}
+
+// Friendly metric labels — `recovery_score` → `Recovery`, etc.
+const METRIC_LABELS: Record<string, string> = {
+  recovery_score: 'Recovery',
+  resting_heart_rate: 'Resting HR',
+  hrv_rmssd: 'HRV',
+  spo2: 'SpO₂',
+  sleep_hours: 'Sleep',
+  sleep_efficiency: 'Sleep efficiency',
+  sleep_performance: 'Sleep performance',
+  respiratory_rate: 'Respiratory rate',
+  strain: 'Day strain',
+  workout_strain: 'Workout strain',
+  avg_heart_rate: 'Avg HR',
+  max_heart_rate: 'Max HR',
+  energy_burned: 'Energy',
 };
 
 function formatDate(iso: string): string {
@@ -198,6 +228,19 @@ export function InsightsView() {
                     title: g.title ?? '(untitled)',
                     sub: g.source.replace('gmail_', '').replace(/_/g, ' '),
                     when: g.created_at,
+                  }))}
+                />
+              )}
+
+              {data.recent.health.length > 0 && (
+                <RecentList
+                  title="Health readings"
+                  icon="💚"
+                  items={data.recent.health.map((h) => ({
+                    id: h.id,
+                    title: `${METRIC_LABELS[h.metric] ?? h.metric}: ${formatHealthValue(h.metric, h.value, h.unit)}`,
+                    sub: h.source ?? 'wearable',
+                    when: h.recorded_at,
                   }))}
                 />
               )}

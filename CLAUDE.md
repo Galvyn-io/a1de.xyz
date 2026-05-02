@@ -82,7 +82,10 @@ backend/
     │   └── tools.ts          # search_golf_courses, check_tee_times_at_course, book_tee_time
     ├── health/
     │   ├── whoop.ts          # Whoop API client + pure mappers to health_metrics rows
-    │   └── db.ts             # upsertHealthMetrics, getRecentHealthMetrics
+    │   ├── db.ts             # upsertHealthMetrics, getRecentHealthMetrics
+    │   └── tools.ts          # get_recent_health_metrics tool definition + executor
+    ├── webhooks/
+    │   └── whoop.ts          # POST /webhooks/whoop — HMAC-verified, schedules whoop.sync
     ├── realtime.ts            # Stateless REST broadcasts to Supabase Realtime
     └── tasks/
         ├── types.ts          # TaskHandler interface, TaskRow type

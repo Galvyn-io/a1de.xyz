@@ -14,7 +14,12 @@ import type { User } from '@supabase/supabase-js';
 import { requireAuth } from '../middleware/auth.js';
 import { config } from '../config.js';
 import { invalidateMemory, type MemoryRow, type EntityRow } from './db.js';
-import { buildActivity, type EventRow, type MemoryRow as ActivityMemoryRow } from './activity.js';
+import {
+  buildActivity,
+  type EventRow,
+  type MemoryRow as ActivityMemoryRow,
+  type HealthMetricRow,
+} from './activity.js';
 
 type AuthEnv = { Variables: { user: User } };
 
@@ -138,9 +143,10 @@ memories.get('/activity', requireAuth, async (c) => {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const db = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY);
 
-  // Two cheap parallel queries beat one giant join — events and memories
-  // live in separate tables and the row counts here are small (< few hundred).
-  const [eventsRes, memoriesRes] = await Promise.all([
+  // Three cheap parallel queries beat one giant join — events, memories,
+  // and health_metrics each live in separate tables and the row counts
+  // here are small (< few hundred).
+  const [eventsRes, memoriesRes, healthRes] = await Promise.all([
     db
       .from('events')
       .select('id, title, source, start_at, created_at')
@@ -155,15 +161,24 @@ memories.get('/activity', requireAuth, async (c) => {
       .gte('created_at', since)
       .order('created_at', { ascending: false })
       .returns<ActivityMemoryRow[]>(),
+    db
+      .from('health_metrics')
+      .select('id, metric, value, unit, source, recorded_at')
+      .eq('user_id', user.id)
+      .gte('recorded_at', since)
+      .order('recorded_at', { ascending: false })
+      .returns<HealthMetricRow[]>(),
   ]);
 
   if (eventsRes.error) throw eventsRes.error;
   if (memoriesRes.error) throw memoriesRes.error;
+  if (healthRes.error) throw healthRes.error;
 
   return c.json(
     buildActivity({
       events: eventsRes.data ?? [],
       memories: memoriesRes.data ?? [],
+      health: healthRes.data ?? [],
       days,
       now: new Date(),
     }),
