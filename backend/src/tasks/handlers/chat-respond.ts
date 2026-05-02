@@ -41,6 +41,7 @@ import { getAlwaysInjectMemories } from '../../memory/db.js';
 import { MEMORY_TOOLS, executeTool as executeMemoryTool } from '../../memory/tools.js';
 import { GOLF_TOOLS, executeGolfTool } from '../../golf/tools.js';
 import { INGESTION_TOOLS, executeIngestionTool } from '../../ingestion/tools.js';
+import { HEALTH_TOOLS, executeHealthTool } from '../../health/tools.js';
 import { createTask } from '../runner.js';
 import { broadcast as broadcastRealtime } from '../../realtime.js';
 
@@ -56,10 +57,17 @@ const WEB_SEARCH_TOOL = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ALL_TOOLS: any[] = [...MEMORY_TOOLS, ...GOLF_TOOLS, ...INGESTION_TOOLS, WEB_SEARCH_TOOL];
+const ALL_TOOLS: any[] = [
+  ...MEMORY_TOOLS,
+  ...GOLF_TOOLS,
+  ...INGESTION_TOOLS,
+  ...HEALTH_TOOLS,
+  WEB_SEARCH_TOOL,
+];
 
 const GOLF_TOOL_NAMES = new Set(GOLF_TOOLS.map((t) => t.name));
 const INGESTION_TOOL_NAMES = new Set(INGESTION_TOOLS.map((t) => t.name));
+const HEALTH_TOOL_NAMES = new Set(HEALTH_TOOLS.map((t) => t.name));
 
 async function executeTool(
   name: string,
@@ -69,6 +77,7 @@ async function executeTool(
 ): Promise<string> {
   if (GOLF_TOOL_NAMES.has(name)) return executeGolfTool(name, input, userId, conversationId);
   if (INGESTION_TOOL_NAMES.has(name)) return executeIngestionTool(name, input, userId);
+  if (HEALTH_TOOL_NAMES.has(name)) return executeHealthTool(name, input, userId);
   return executeMemoryTool(name, input, userId);
 }
 
